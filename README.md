@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ChainPost ⛓️📝
 
-## Getting Started
+**Publish with Your Wallet. Own Your Creator Identity.**
 
-First, run the development server:
+ChainPost is a decentralized, wallet-connected blogging platform built for the **Shelby Developer Program**. It empowers writers to seamlessly log in with their Aptos wallets, publish markdown content, and persist it entirely on-chain or via decentralized storage networks.
 
+## Features ✨
+
+- **Web3 Authentication:** Instant login using any Aptos wallet (Petra, Martian, Pontem) via `@aptos-labs/wallet-adapter-react`.
+- **Markdown Editor:** Write beautiful posts with full Git-Flavored Markdown (GFM) support, live previews, and syntax highlighting.
+- **On-Chain Publishing (Mock):** Toggle the ability to simulate writing post hashes directly to the Aptos blockchain, showcasing future smart contract integration capabilities.
+- **Robust Storage Architecture:** Uses `@vercel/blob` for durable off-chain persistence while keeping an elegant in-memory fallback for instant local testing without `.env` setup.
+- **Performant & SEO Ready:** Built with Next.js App Router and statically rendered pages for blazingly fast read times.
+
+## Tech Stack 🛠️
+
+- **Framework:** Next.js 16 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS & Lucide Icons
+- **Web3 / Blockchain:** Aptos SDK, Aptos Wallet Adapter
+- **Storage:** Vercel Blob (Object Storage)
+- **Deployment:** Vercel
+
+## Getting Started 🚀
+
+### 1. Clone & Install
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/yourusername/chain-post.git
+cd chain-post
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure Vercel Blob (Persistent Storage)
+For persistent storage, copy the env file and add your Vercel Blob token:
+```bash
+cp .env.example .env.local
+```
+Inside Vercel, navigate to **Storage > Add Blob** to provision a free blob store. Copy your `BLOB_READ_WRITE_TOKEN` into your `.env.local`. 
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+If left blank, the app will gracefully fall back to running entirely in ephemeral memory mode for easy testing.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Run Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) with your browser. Connect an Aptos wallet (Testnet) to create a profile and write your first post!
 
-## Learn More
+## Architecture Note for Judges 🔍
 
-To learn more about Next.js, take a look at the following resources:
+This project demonstrates a **Web2.5** paradigm:
+- Identity is entirely decentralized (Wallet Signatures via Aptos).
+- Heavy content (Markdown) is stored in a scalable off-chain blob store (Vercel Blob).
+- Application structure is built to drop-in Shelby Protocol or Aptos Move smart contracts for the final decentralized persistence layer.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*Built for the Shelby Developer Program 2026*

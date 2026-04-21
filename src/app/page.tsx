@@ -1,65 +1,119 @@
-import Image from "next/image";
+import { Sparkles, ArrowRight, Blocks } from 'lucide-react';
+import Link from 'next/link';
+import { connection } from 'next/server';
+import HomeFeed from '@/components/HomeFeed';
+import { categories } from '@/lib/mock-data';
+import { getPosts, getStorageMode } from '@/lib/store';
+import { getAverageReadTime, getTopTags } from '@/lib/utils';
 
-export default function Home() {
+export default async function Home() {
+  await connection();
+
+  const posts = await getPosts();
+  const storageMode = getStorageMode();
+  const topTags = getTopTags(posts).slice(0, 8);
+  const authorCount = new Set(posts.map((post) => post.author.walletAddress)).size;
+  const averageReadTime = getAverageReadTime(posts);
+  const tagCount = new Set(posts.flatMap((post) => post.tags)).size;
+
+  const heroStats = [
+    { label: 'Posts Published', value: posts.length.toString() },
+    { label: 'Wallet Authors', value: authorCount.toString() },
+    { label: 'Categories', value: String(categories.length - 1) },
+    { label: 'Avg Read Time', value: `${averageReadTime || 1} min` },
+  ];
+
+  const sidebarStats = [
+    { label: 'Total Posts', value: posts.length.toString(), icon: '📝' },
+    { label: 'Authors', value: authorCount.toString(), icon: '✍️' },
+    { label: 'Tags', value: tagCount.toString(), icon: '🏷️' },
+    { label: 'Platform Type', value: 'Web2.5', icon: '🌐' },
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <>
+      <section style={{ padding: '72px 0 48px', textAlign: 'center' }} id="hero">
+        <div className="container-narrow">
+          <div className="animate-fadeIn" style={{ marginBottom: 16 }}>
+            <span className="badge badge-purple" style={{ fontSize: '0.75rem' }}>
+              <Sparkles size={12} style={{ marginRight: 4 }} />
+              Aptos Wallet Ready
+            </span>
+          </div>
+
+          <h1 className="animate-fadeIn animate-delay-1" style={{
+            fontSize: 'clamp(2.2rem, 5vw, 3.5rem)',
+            fontWeight: 900,
+            lineHeight: 1.15,
+            letterSpacing: '-0.03em',
+            marginBottom: 20,
+          }}>
+            Publish with Your{' '}
+            <span className="gradient-text">Wallet</span>
+            <br />
+            Own Your{' '}
+            <span className="gradient-text-pink">Creator Identity</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+          <p className="animate-fadeIn animate-delay-2" style={{
+            fontSize: '1.15rem',
+            color: 'var(--color-text-secondary)',
+            maxWidth: 620,
+            margin: '0 auto 32px',
+            lineHeight: 1.7,
+          }}>
+            ChainPost is a wallet-connected publishing app for Aptos builders. Create a profile,
+            write in markdown, persist posts with a free-tier-friendly backend, and ship on Vercel.
           </p>
+
+          <div className="animate-fadeIn animate-delay-3" style={{
+            display: 'flex',
+            gap: 12,
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+          }}>
+            <Link href="/write" className="btn-primary" style={{ textDecoration: 'none' }}>
+              <span>Start Writing</span>
+              <ArrowRight size={18} />
+            </Link>
+            <Link href="/about" className="btn-secondary" style={{ textDecoration: 'none' }}>
+              <Blocks size={18} />
+              <span>How It Works</span>
+            </Link>
+          </div>
+
+          <div className="animate-fadeIn animate-delay-4" style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 40,
+            marginTop: 48,
+            flexWrap: 'wrap',
+          }}>
+            {heroStats.map((stat) => (
+              <div key={stat.label} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: 4 }} className="gradient-text">
+                  {stat.value}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                  {stat.label}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </section>
+
+      <div className="container-page">
+        <div className="divider" />
+      </div>
+
+      <HomeFeed
+        posts={posts}
+        categories={categories}
+        topTags={topTags}
+        sidebarStats={sidebarStats}
+        storageMode={storageMode}
+      />
+    </>
   );
 }
