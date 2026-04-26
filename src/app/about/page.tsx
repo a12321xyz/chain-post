@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'About — ChainPost',
-  description: 'Learn how ChainPost works — a wallet-connected publishing MVP for Aptos builders.',
+  description: 'Learn how ChainPost stores markdown on Shelby and caches feed metadata for discovery.',
 };
 
 export default function AboutPage() {
@@ -30,8 +30,8 @@ export default function AboutPage() {
     {
       icon: '🚀',
       title: 'Publish',
-      description: 'Persist posts to a live backend and serve them from dynamic Next.js routes.',
-      detail: 'Use the in-memory fallback locally or add Vercel Blob for persistent off-chain storage.',
+      description: 'Register and upload post markdown to Shelby from the connected wallet.',
+      detail: 'The app keeps title, tags, excerpt, and ordering metadata in a lightweight cache.',
     },
   ];
 
@@ -44,14 +44,14 @@ export default function AboutPage() {
     },
     {
       icon: <Zap size={24} />,
-      title: 'Deploy Friendly',
-      description: 'Built for Vercel deployment with a single-click Vercel Blob integration for storage.',
+      title: 'Shelby Storage',
+      description: 'Markdown content is uploaded to Shelby after the wallet signs the blob registration transaction.',
       color: '#06b6d4',
     },
     {
       icon: <Lock size={24} />,
-      title: 'Live Content',
-      description: 'Posts, profiles, and post pages are wired to real storage instead of hardcoded-only UI state.',
+      title: 'Indexed Discovery',
+      description: 'Feed metadata is cached separately so the homepage can list posts without embedding every body.',
       color: '#ec4899',
     },
     {
@@ -68,8 +68,8 @@ export default function AboutPage() {
     },
     {
       icon: <BookOpen size={24} />,
-      title: 'Aptos Ready',
-      description: 'The MVP is structured so signature verification or on-chain anchoring can be added next.',
+      title: 'Aptos Anchored',
+      description: 'Shelby posts display the real registration transaction hash returned by the connected wallet.',
       color: '#6366f1',
     },
   ];
@@ -98,7 +98,7 @@ export default function AboutPage() {
           margin: '0 auto',
           lineHeight: 1.7,
         }}>
-          ChainPost combines wallet-based identity, markdown publishing, and a free-tier-friendly backend
+          ChainPost combines wallet-based identity, Shelby markdown storage, and a lightweight metadata cache
           into a real MVP you can deploy and extend.
         </p>
       </section>
@@ -226,7 +226,8 @@ export default function AboutPage() {
             {[
               { name: 'Next.js', desc: 'Frontend Framework', badge: 'badge-purple' },
               { name: 'Aptos Wallet Adapter', desc: 'Wallet Connectivity', badge: 'badge-cyan' },
-              { name: 'Vercel Blob', desc: 'Object Storage', badge: 'badge-green' },
+              { name: 'Shelby SDK', desc: 'Markdown Storage', badge: 'badge-green' },
+              { name: 'Vercel Blob', desc: 'Metadata Cache', badge: 'badge-cyan' },
               { name: 'TypeScript', desc: 'Language', badge: 'badge-pink' },
             ].map(tech => (
               <div key={tech.name} style={{
@@ -259,7 +260,7 @@ export default function AboutPage() {
             Ready to <span className="gradient-text">Publish?</span>
           </h2>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 24, fontSize: '1.05rem' }}>
-            Start writing your first decentralized post today.
+            Start writing your first Shelby-backed post today.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/write" className="btn-primary" style={{ textDecoration: 'none' }}>

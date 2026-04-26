@@ -19,8 +19,8 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "ChainPost — Wallet Connected Publishing for Aptos",
-  description: "A wallet-connected publishing app for Aptos builders. Create a profile, write markdown posts, and deploy on Vercel with Neon-backed persistence.",
-  keywords: ["ChainPost", "Aptos", "wallet publishing", "Next.js", "Neon", "Vercel"],
+  description: "A wallet-connected publishing app for Aptos builders. Store markdown on Shelby and cache feed metadata for discovery.",
+  keywords: ["ChainPost", "Aptos", "Shelby", "wallet publishing", "Next.js", "Vercel"],
 };
 
 export default function RootLayout({

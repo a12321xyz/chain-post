@@ -27,7 +27,7 @@ export default async function Home() {
     { label: 'Total Posts', value: posts.length.toString(), icon: '📝' },
     { label: 'Authors', value: authorCount.toString(), icon: '✍️' },
     { label: 'Tags', value: tagCount.toString(), icon: '🏷️' },
-    { label: 'Platform Type', value: 'Web2.5', icon: '🌐' },
+    { label: 'Storage', value: 'Shelby', icon: '🌐' },
   ];
 
   return (
@@ -63,7 +63,7 @@ export default async function Home() {
             lineHeight: 1.7,
           }}>
             ChainPost is a wallet-connected publishing app for Aptos builders. Create a profile,
-            write in markdown, persist posts with a free-tier-friendly backend, and ship on Vercel.
+            write in markdown, store post bodies on Shelby, and cache feed metadata for discovery.
           </p>
 
           <div className="animate-fadeIn animate-delay-3" style={{

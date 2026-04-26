@@ -14,6 +14,24 @@ const createPostSchema = z.object({
   category: z.string().trim().min(2).max(40),
   tags: z.array(z.string().trim().min(1).max(30)).max(5),
   isOnChain: z.boolean().optional().default(false),
+  storageProvider: z.enum(['vercel-blob', 'memory', 'shelby']).optional(),
+  storageRef: z.string().trim().min(1).max(600).optional(),
+  storageAccount: z.string().trim().min(1).refine(isValidWalletAddress, 'Invalid storage account').optional(),
+  storageBlobName: z.string().trim().min(1).max(300).optional(),
+  storageNetwork: z.string().trim().min(1).max(40).optional(),
+  txHash: z.string().trim().regex(/^0x[0-9a-fA-F]+$/).optional(),
+}).superRefine((input, ctx) => {
+  if (input.storageProvider !== 'shelby') return;
+
+  for (const key of ['storageRef', 'storageAccount', 'storageBlobName', 'storageNetwork', 'txHash'] as const) {
+    if (!input[key]) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: `${key} is required for Shelby posts`,
+      });
+    }
+  }
 });
 
 export async function GET(request: Request) {
@@ -57,6 +75,14 @@ export async function POST(request: Request) {
 
     if (error instanceof Error && error.message === 'SLUG_CONFLICT') {
       return Response.json({ error: 'Could not reserve a unique slug for this title. Please try again.' }, { status: 409 });
+    }
+
+    if (error instanceof Error && error.message === 'SHELBY_METADATA_REQUIRED') {
+      return Response.json({ error: 'Shelby storage metadata is required before publishing.' }, { status: 400 });
+    }
+
+    if (error instanceof Error && error.message === 'SHELBY_ACCOUNT_MISMATCH') {
+      return Response.json({ error: 'Shelby blob owner must match the connected wallet.' }, { status: 400 });
     }
 
     return Response.json({ error: 'Could not create post' }, { status: 500 });

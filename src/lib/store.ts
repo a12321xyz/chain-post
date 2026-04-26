@@ -1,7 +1,9 @@
+import { AccountAddress } from '@aptos-labs/ts-sdk';
 import { list, put } from '@vercel/blob';
 import { mockPosts } from './mock-data';
-import { Author, CreatePostInput, Post, ProfileInput } from './types';
+import { Author, CreatePostInput, Post, ProfileInput, StorageProvider } from './types';
 import { calculateReadTime, createExcerpt, formatWalletAddress, normalizeTags, slugify } from './utils';
+import { fetchShelbyPostContent } from './shelby-server';
 
 export type StorageMode = 'blob' | 'memory';
 
@@ -14,13 +16,36 @@ declare global {
   var __chainPostMemoryStore: BlobDatabase | undefined;
 }
 
-const blobEnabled = process.env.BLOB_READ_WRITE_TOKEN !== undefined;
+const blobEnabled = (process.env.BLOB_READ_WRITE_TOKEN?.trim().length ?? 0) > 0;
+const LEGACY_DATABASE_KEY = 'chainpost-db.json';
+const POST_PREFIX = 'chainpost/posts/';
+const AUTHOR_PREFIX = 'chainpost/authors/';
+
+function normalizeWalletKey(walletAddress: string) {
+  try {
+    return AccountAddress.from(walletAddress).toString().toLowerCase();
+  } catch {
+    return walletAddress.toLowerCase();
+  }
+}
+
+function normalizeWalletStrict(walletAddress: string) {
+  return AccountAddress.from(walletAddress).toString().toLowerCase();
+}
+
+function clonePost(post: Post): Post {
+  return {
+    ...post,
+    author: { ...post.author },
+    tags: [...post.tags],
+  };
+}
 
 function getMemoryStore(): BlobDatabase {
   if (!globalThis.__chainPostMemoryStore) {
     globalThis.__chainPostMemoryStore = {
       authors: {},
-      posts: mockPosts.map((post) => ({ ...post, tags: [...post.tags] })),
+      posts: mockPosts.map(clonePost),
     };
   }
   return globalThis.__chainPostMemoryStore;
@@ -34,48 +59,170 @@ export function isPersistentStorageEnabled() {
   return blobEnabled;
 }
 
-async function getBlobDatabase(): Promise<BlobDatabase> {
+async function fetchJson<T>(url: string): Promise<T | undefined> {
   try {
-    const { blobs } = await list({ prefix: 'chainpost-db.json', limit: 1 });
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return undefined;
+    return (await res.json()) as T;
+  } catch (error) {
+    console.error('Error fetching Blob JSON:', error);
+    return undefined;
+  }
+}
+
+async function getLegacyBlobDatabase(): Promise<BlobDatabase> {
+  try {
+    const { blobs } = await list({ prefix: LEGACY_DATABASE_KEY, limit: 1 });
     if (blobs.length > 0 && blobs[0]) {
-      const res = await fetch(blobs[0].url, { cache: 'no-store' });
-      if (res.ok) {
-        return (await res.json()) as BlobDatabase;
-      }
+      return (await fetchJson<BlobDatabase>(blobs[0].url)) ?? { authors: {}, posts: [] };
     }
   } catch (error) {
-    console.error('Error fetching Blob DB:', error);
+    console.error('Error fetching legacy Blob DB:', error);
   }
   return { authors: {}, posts: [] };
 }
 
-async function saveBlobDatabase(db: BlobDatabase) {
+async function listBlobJson<T>(prefix: string): Promise<T[]> {
   try {
-    await put('chainpost-db.json', JSON.stringify(db), {
-      access: 'public',
-      addRandomSuffix: false,
-    });
+    const { blobs } = await list({ prefix, limit: 1000 });
+    const records = await Promise.all(blobs.map((blob) => fetchJson<T>(blob.url)));
+    return records.filter((record) => record !== undefined) as T[];
   } catch (error) {
-    console.error('Error saving Blob DB:', error);
-    throw error;
+    console.error(`Error listing Blob JSON under ${prefix}:`, error);
+    return [];
   }
+}
+
+async function getBlobPosts(): Promise<Post[]> {
+  const [legacyDb, postFiles] = await Promise.all([
+    getLegacyBlobDatabase(),
+    listBlobJson<Post>(POST_PREFIX),
+  ]);
+  const postsBySlug = new Map<string, Post>();
+
+  for (const post of legacyDb.posts) {
+    postsBySlug.set(post.slug, clonePost(post));
+  }
+
+  for (const post of postFiles) {
+    postsBySlug.set(post.slug, clonePost(post));
+  }
+
+  return [...postsBySlug.values()];
+}
+
+async function getBlobAuthors(): Promise<Record<string, Author>> {
+  const [legacyDb, authorFiles] = await Promise.all([
+    getLegacyBlobDatabase(),
+    listBlobJson<Author>(AUTHOR_PREFIX),
+  ]);
+  const authors: Record<string, Author> = { ...legacyDb.authors };
+
+  for (const author of authorFiles) {
+    authors[normalizeWalletKey(author.walletAddress)] = author;
+  }
+
+  return authors;
+}
+
+async function saveBlobPost(post: Post, allowOverwrite = true) {
+  await put(`${POST_PREFIX}${post.slug}.json`, JSON.stringify(post), {
+    access: 'public',
+    addRandomSuffix: false,
+    allowOverwrite,
+  });
+}
+
+async function saveBlobAuthor(author: Author) {
+  await put(`${AUTHOR_PREFIX}${normalizeWalletKey(author.walletAddress)}.json`, JSON.stringify(author), {
+    access: 'public',
+    addRandomSuffix: false,
+    allowOverwrite: true,
+  });
 }
 
 async function getActiveDatabase(): Promise<BlobDatabase> {
   if (!blobEnabled) {
     return getMemoryStore();
   }
-  return getBlobDatabase();
+
+  const [authors, posts] = await Promise.all([
+    getBlobAuthors(),
+    getBlobPosts(),
+  ]);
+
+  return { authors, posts };
 }
 
-async function updateActiveDatabase(updater: (db: BlobDatabase) => void) {
-  if (!blobEnabled) {
-    updater(getMemoryStore());
-    return;
+async function hydratePostContent(post: Post): Promise<Post> {
+  if (post.content || post.storageProvider !== 'shelby') {
+    return post;
   }
-  const db = await getBlobDatabase();
-  updater(db);
-  await saveBlobDatabase(db);
+
+  try {
+    const content = await fetchShelbyPostContent(post);
+    return content ? { ...post, content } : post;
+  } catch (error) {
+    console.error(`Error fetching Shelby content for ${post.slug}:`, error);
+    return post;
+  }
+}
+
+function assertShelbyPostInput(input: CreatePostInput) {
+  if (input.storageProvider !== 'shelby') return;
+
+  if (!input.storageRef || !input.storageAccount || !input.storageBlobName || !input.storageNetwork || !input.txHash) {
+    throw new Error('SHELBY_METADATA_REQUIRED');
+  }
+
+  if (normalizeWalletStrict(input.storageAccount) !== normalizeWalletStrict(input.walletAddress)) {
+    throw new Error('SHELBY_ACCOUNT_MISMATCH');
+  }
+}
+
+function buildPost(input: CreatePostInput, author: Author, id: string, slug: string): Post {
+  const title = input.title.trim();
+  const content = input.content.trim();
+  const isShelbyPost = input.storageProvider === 'shelby';
+  const storageProvider: StorageProvider = isShelbyPost
+    ? 'shelby'
+    : blobEnabled
+      ? 'vercel-blob'
+      : 'memory';
+
+  return {
+    id,
+    title,
+    excerpt: createExcerpt(content),
+    content: isShelbyPost ? undefined : content,
+    author,
+    tags: normalizeTags(input.tags),
+    category: input.category,
+    publishedAt: new Date().toISOString(),
+    readTime: calculateReadTime(content),
+    likes: 0,
+    views: 0,
+    isOnChain: isShelbyPost,
+    txHash: isShelbyPost ? input.txHash : undefined,
+    storageProvider,
+    storageRef: isShelbyPost ? input.storageRef : undefined,
+    storageAccount: isShelbyPost ? input.storageAccount : undefined,
+    storageBlobName: isShelbyPost ? input.storageBlobName : undefined,
+    storageNetwork: isShelbyPost ? input.storageNetwork : undefined,
+    slug,
+  };
+}
+
+function createUniqueSlug(baseSlug: string, existingSlugs: Set<string>) {
+  let attempt = 0;
+  let slug = baseSlug;
+
+  while (existingSlugs.has(slug)) {
+    attempt++;
+    slug = `${baseSlug}-${attempt + 1}`;
+  }
+
+  return slug;
 }
 
 export async function getPosts(): Promise<Post[]> {
@@ -85,85 +232,80 @@ export async function getPosts(): Promise<Post[]> {
 
 export async function getPostBySlug(slug: string): Promise<Post | undefined> {
   const db = await getActiveDatabase();
-  return db.posts.find((p) => p.slug === slug);
+  const post = db.posts.find((p) => p.slug === slug);
+  return post ? hydratePostContent(post) : undefined;
 }
 
 export async function getPostsByWallet(walletAddress: string): Promise<Post[]> {
   const posts = await getPosts();
-  return posts.filter((p) => p.author.walletAddress.toLowerCase() === walletAddress.toLowerCase());
+  return posts.filter((p) => normalizeWalletKey(p.author.walletAddress) === normalizeWalletKey(walletAddress));
 }
 
 export async function getAuthorByWallet(walletAddress: string): Promise<Author | undefined> {
   const db = await getActiveDatabase();
-  return db.authors[walletAddress.toLowerCase()];
+  return db.authors[normalizeWalletKey(walletAddress)];
 }
 
 export async function upsertAuthorProfile(input: ProfileInput): Promise<Author> {
-  const walletAddress = input.walletAddress.toLowerCase();
+  const walletAddress = normalizeWalletKey(input.walletAddress);
   const author: Author = {
-    walletAddress: input.walletAddress,
+    walletAddress: AccountAddress.from(input.walletAddress).toString(),
     name: input.name.trim() || `Writer ${formatWalletAddress(input.walletAddress, 6, 3)}`,
     bio: input.bio.trim(),
-    avatar: input.avatar.trim() || '🧑‍💻',
+    avatar: input.avatar.trim() || 'CP',
   };
 
-  await updateActiveDatabase((db) => {
+  if (!blobEnabled) {
+    const db = getMemoryStore();
     db.authors[walletAddress] = author;
-    // Update existing posts to reflect new profile metadata
     db.posts = db.posts.map((post) =>
-      post.author.walletAddress.toLowerCase() === walletAddress ? { ...post, author } : post
+      normalizeWalletKey(post.author.walletAddress) === walletAddress ? { ...post, author } : post
     );
-  });
+    return author;
+  }
+
+  await saveBlobAuthor(author);
+
+  const posts = await getBlobPosts();
+  const authoredPosts = posts.filter((post) => normalizeWalletKey(post.author.walletAddress) === walletAddress);
+  await Promise.all(authoredPosts.map((post) => saveBlobPost({ ...post, author })));
 
   return author;
 }
 
 export async function createPost(input: CreatePostInput): Promise<Post> {
+  assertShelbyPostInput(input);
+
   const author = await getAuthorByWallet(input.walletAddress);
   if (!author) {
     throw new Error('PROFILE_REQUIRED');
   }
 
-  const title = input.title.trim();
-  const content = input.content.trim();
-  const tags = normalizeTags(input.tags);
-  const baseSlug = slugify(title);
+  const baseSlug = slugify(input.title.trim());
 
-  let post: Post | null = null;
-
-  await updateActiveDatabase((db) => {
-    let attempt = 0;
-    let slug = baseSlug;
-    while (db.posts.some((p) => p.slug === slug)) {
-      attempt++;
-      slug = `${baseSlug}-${attempt + 1}`;
-    }
-
-    post = {
-      id: crypto.randomUUID(),
-      title,
-      excerpt: createExcerpt(content),
-      content,
-      author,
-      tags,
-      category: input.category,
-      publishedAt: new Date().toISOString(),
-      readTime: calculateReadTime(content),
-      likes: 0,
-      views: 0,
-      isOnChain: !!input.isOnChain,
-      txHash: input.isOnChain
-        ? '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
-        : undefined,
-      slug,
-    };
-
+  if (!blobEnabled) {
+    const db = getMemoryStore();
+    const slug = createUniqueSlug(baseSlug, new Set(db.posts.map((post) => post.slug)));
+    const post = buildPost(input, author, crypto.randomUUID(), slug);
     db.posts.push(post);
-  });
-
-  if (!post) {
-    throw new Error('Could not create post');
+    return post;
   }
 
-  return post;
+  const id = crypto.randomUUID();
+  const existingSlugs = new Set((await getBlobPosts()).map((post) => post.slug));
+  const baseCandidate = createUniqueSlug(baseSlug, existingSlugs);
+  const candidateSlugs = [baseCandidate, `${baseSlug}-${id.slice(0, 8)}`];
+
+  for (const slug of candidateSlugs) {
+    const post = buildPost(input, author, id, slug);
+
+    try {
+      await saveBlobPost(post, false);
+      return post;
+    } catch (error) {
+      console.error(`Error saving post blob for ${slug}:`, error);
+    }
+  }
+
+  throw new Error('SLUG_CONFLICT');
 }

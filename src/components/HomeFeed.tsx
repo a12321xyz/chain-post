@@ -6,7 +6,7 @@ import PostCard from '@/components/PostCard';
 import SearchBar from '@/components/SearchBar';
 import CategoryFilter from '@/components/CategoryFilter';
 import Sidebar from '@/components/Sidebar';
-import { StorageMode } from '@/lib/store';
+import type { StorageMode } from '@/lib/store';
 
 interface HomeFeedProps {
   posts: Post[];

@@ -35,7 +35,7 @@ export default function Footer() {
               </span>
             </div>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', lineHeight: 1.6 }}>
-              Wallet-connected publishing for Aptos builders. Deploy on Vercel, persist with Neon, and extend toward on-chain flows.
+              Wallet-connected publishing for Aptos builders. Store markdown on Shelby and cache feed metadata for discovery.
             </p>
           </div>
 
@@ -70,9 +70,9 @@ export default function Footer() {
                 style={{ color: 'var(--color-text-secondary)', textDecoration: 'none', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                 Aptos Docs <ExternalLink size={12} />
               </a>
-              <a href="https://neon.tech" target="_blank" rel="noopener noreferrer"
+              <a href="https://shelby.xyz" target="_blank" rel="noopener noreferrer"
                 style={{ color: 'var(--color-text-secondary)', textDecoration: 'none', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                Neon Postgres <ExternalLink size={12} />
+                Shelby <ExternalLink size={12} />
               </a>
             </div>
           </div>
@@ -84,10 +84,10 @@ export default function Footer() {
             </h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <div className="status-dot" />
-              <span style={{ color: '#34d399', fontSize: '0.875rem', fontWeight: 500 }}>Ready for Vercel</span>
+              <span style={{ color: '#34d399', fontSize: '0.875rem', fontWeight: 500 }}>Shelby Ready</span>
             </div>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-              Set `DATABASE_URL` to enable persistent shared publishing.
+              Set `NEXT_PUBLIC_SHELBY_API_KEY` for Shelby uploads. Vercel Blob or memory is used for metadata caching.
             </p>
           </div>
         </div>
@@ -109,7 +109,7 @@ export default function Footer() {
               Aptos Wallets
             </span>
             <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
-              Neon + Vercel
+              Shelby Storage
             </span>
           </div>
         </div>

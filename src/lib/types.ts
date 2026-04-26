@@ -1,9 +1,11 @@
+export type StorageProvider = 'vercel-blob' | 'memory' | 'shelby';
+
 export interface Post {
   id: string;
   title: string;
   slug: string;
   excerpt: string;
-  content: string;
+  content?: string;
   author: Author;
   tags: string[];
   category: string;
@@ -13,7 +15,11 @@ export interface Post {
   likes: number;
   views: number;
   txHash?: string;
+  storageProvider?: StorageProvider;
   storageRef?: string;
+  storageAccount?: string;
+  storageBlobName?: string;
+  storageNetwork?: string;
   isOnChain: boolean;
 }
 
@@ -43,6 +49,12 @@ export interface CreatePostInput {
   category: string;
   tags: string[];
   isOnChain?: boolean;
+  storageProvider?: StorageProvider;
+  storageRef?: string;
+  storageAccount?: string;
+  storageBlobName?: string;
+  storageNetwork?: string;
+  txHash?: string;
 }
 
 export type SortOption = 'latest' | 'popular' | 'trending';

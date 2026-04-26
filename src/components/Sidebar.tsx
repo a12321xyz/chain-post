@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { StorageMode } from '@/lib/store';
+import type { StorageMode } from '@/lib/store';
 import { Tag } from '@/lib/types';
 import { Hash, TrendingUp } from 'lucide-react';
 
@@ -95,13 +95,13 @@ export default function Sidebar({ topTags, stats, storageMode, onTagClick }: Sid
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <div className="status-dot" />
           <span style={{ color: '#34d399', fontSize: '0.85rem', fontWeight: 600 }}>
-            {storageMode === 'memory' ? 'Memory Store' : 'Blob Storage'}
+            {storageMode === 'memory' ? 'Memory Metadata Cache' : 'Blob Metadata Cache'}
           </span>
         </div>
         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', lineHeight: 1.6, marginBottom: 12 }}>
           {storageMode === 'memory'
-            ? 'App is currently running in memory mode. Posts and profiles are ephemeral.'
-            : 'App is running in persistent mode. Data is stored permanently in Vercel Blob.'}
+            ? 'Feed metadata and fallback posts are ephemeral. Shelby posts keep markdown content outside this cache.'
+            : 'Feed metadata is cached in Vercel Blob. Shelby posts store markdown content on Shelby.'}
         </p>
         <Link
           href="/about"

@@ -13,6 +13,8 @@ interface PostCardProps {
 
 export default function PostCard({ post, index }: PostCardProps) {
   const timeAgo = formatDistanceToNow(new Date(post.publishedAt), { addSuffix: true });
+  const isShelbyStored = post.storageProvider === 'shelby' && post.txHash && post.storageRef;
+  const shelbyTxHash = isShelbyStored ? post.txHash : undefined;
 
   const categoryColors: Record<string, string> = {
     'Tutorial': 'badge-cyan',
@@ -111,8 +113,8 @@ export default function PostCard({ post, index }: PostCardProps) {
           </div>
         </div>
 
-        {/* On-chain indicator */}
-        {post.isOnChain && post.txHash && (
+        {/* Shelby storage indicator */}
+        {shelbyTxHash && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -124,10 +126,10 @@ export default function PostCard({ post, index }: PostCardProps) {
           }}>
             <div className="status-dot" style={{ width: 6, height: 6 }} />
             <span style={{ fontSize: '0.72rem', color: '#34d399', fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>
-              On-chain verified
+              Shelby stored
             </span>
             <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', marginLeft: 'auto' }}>
-              {post.txHash.slice(0, 10)}...{post.txHash.slice(-6)}
+              {shelbyTxHash.slice(0, 10)}...{shelbyTxHash.slice(-6)}
             </span>
           </div>
         )}

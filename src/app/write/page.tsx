@@ -9,10 +9,13 @@ import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { categories } from '@/lib/mock-data';
 import { Author, Post } from '@/lib/types';
 import { ensureWalletSession } from '@/lib/wallet-auth-client';
+import { publishPostContentToShelby, type PublishShelbyPostResult } from '@/lib/shelby-client';
+import { getShelbyApiKey } from '@/lib/shelby';
 
 export default function WritePage() {
-  const { connected, account, signMessage } = useWallet();
+  const { connected, account, signMessage, signAndSubmitTransaction } = useWallet();
   const walletAddress = account?.address.toString() ?? '';
+  const shelbyConfigured = getShelbyApiKey().length > 0;
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -20,7 +23,7 @@ export default function WritePage() {
   const [tagInput, setTagInput] = useState('');
   const [category, setCategory] = useState('Tutorial');
   const [preview, setPreview] = useState(false);
-  const [isOnChain, setIsOnChain] = useState(false);
+  const [storeOnShelby, setStoreOnShelby] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [publishedPost, setPublishedPost] = useState<Post | null>(null);
   const [publishedStorageMode, setPublishedStorageMode] = useState<'blob' | 'memory' | null>(null);
@@ -90,6 +93,7 @@ export default function WritePage() {
     setTagInput('');
     setCategory('Tutorial');
     setPreview(false);
+    setStoreOnShelby(true);
     setStatus('');
   };
 
@@ -106,6 +110,22 @@ export default function WritePage() {
         signMessage,
       });
 
+      let shelbyMetadata: PublishShelbyPostResult | null = null;
+
+      if (storeOnShelby) {
+        shelbyMetadata = await publishPostContentToShelby({
+          walletAddress,
+          title,
+          content,
+          category,
+          tags,
+          signAndSubmitTransaction,
+          onStatus: setStatus,
+        });
+      }
+
+      setStatus('Saving feed metadata...');
+
       const response = await fetch('/api/posts', {
         method: 'POST',
         headers: {
@@ -117,7 +137,8 @@ export default function WritePage() {
           content,
           category,
           tags,
-          isOnChain,
+          isOnChain: shelbyMetadata !== null,
+          ...shelbyMetadata,
         }),
       });
 
@@ -156,9 +177,11 @@ export default function WritePage() {
             Published <span className="gradient-text">Successfully</span>
           </h1>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 8, fontSize: '1.05rem' }}>
-            {publishedStorageMode === 'memory'
+            {publishedPost.storageProvider === 'shelby'
+              ? 'Markdown content was stored on Shelby. ChainPost cached feed metadata so readers can discover it.'
+              : publishedStorageMode === 'memory'
               ? 'Your post was saved in demo memory for this server instance only and may reset.'
-              : 'Your post is live in the ChainPost feed and linked to your connected wallet profile.'}
+              : 'Your post is live in the ChainPost feed with content stored in the app metadata cache.'}
           </p>
 
           <div className="glass-card" style={{ padding: 20, marginTop: 24, maxWidth: 520, margin: '24px auto' }}>
@@ -173,9 +196,47 @@ export default function WritePage() {
               }}>
                 <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Status</span>
                 <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
-                  {publishedStorageMode === 'memory' ? 'Memory Only' : 'Blob Published'}
+                  {publishedPost.storageProvider === 'shelby'
+                    ? 'Shelby Stored'
+                    : publishedStorageMode === 'memory'
+                      ? 'Memory Only'
+                      : 'Metadata Cached'}
                 </span>
               </div>
+              {publishedPost.storageProvider === 'shelby' && publishedPost.txHash && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.02)',
+                  borderRadius: 8,
+                  border: '1px solid var(--color-border-subtle)',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Shelby Tx</span>
+                  <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: 'var(--color-accent-cyan)' }}>
+                    {publishedPost.txHash.slice(0, 18)}...{publishedPost.txHash.slice(-8)}
+                  </span>
+                </div>
+              )}
+              {publishedPost.storageProvider === 'shelby' && publishedPost.storageRef && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.02)',
+                  borderRadius: 8,
+                  border: '1px solid var(--color-border-subtle)',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Storage Ref</span>
+                  <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: '#a78bfa' }}>
+                    {publishedPost.storageRef}
+                  </span>
+                </div>
+              )}
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -205,7 +266,7 @@ export default function WritePage() {
 
           {publishedStorageMode === 'memory' && (
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-              Add `BLOB_READ_WRITE_TOKEN` on Vercel to make published posts durable across requests and instances.
+              Memory mode is only a local fallback. Shelby-backed posts keep markdown content outside this cache.
             </p>
           )}
 
@@ -435,18 +496,20 @@ export default function WritePage() {
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input
                   type="checkbox"
-                  checked={isOnChain}
-                  onChange={(e) => setIsOnChain(e.target.checked)}
+                  checked={storeOnShelby}
+                  onChange={(e) => setStoreOnShelby(e.target.checked)}
                   style={{ width: 18, height: 18, accentColor: 'var(--color-accent-purple)' }}
                 />
-                <span style={{ fontWeight: 600 }}>Publish to Aptos (Mock On-Chain)</span>
+                <span style={{ fontWeight: 600 }}>Store markdown on Shelby</span>
               </label>
               <div style={{ flex: 1 }} />
-              {isOnChain && (
-                <span className="badge badge-purple" style={{ fontSize: '0.75rem' }}>
-                  A mock txHash will be generated
-                </span>
-              )}
+              <span className={`badge ${shelbyConfigured ? 'badge-purple' : 'badge-pink'}`} style={{ fontSize: '0.75rem' }}>
+                {storeOnShelby
+                  ? shelbyConfigured
+                    ? 'Wallet signs Shelby registration'
+                    : 'Shelby API key needed'
+                  : 'Inline fallback'}
+              </span>
             </div>
 
             <div className="animate-fadeIn animate-delay-2" style={{
@@ -458,16 +521,16 @@ export default function WritePage() {
             }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span className="status-dot" style={{ width: 6, height: 6 }} />
-                Publishing from {profile.name}
+                {storeOnShelby ? 'Publishing to Shelby' : 'Publishing to app cache'} from {profile.name}
               </div>
               <button
                 className="btn-primary"
                 onClick={handlePublish}
-                disabled={!title.trim() || !content.trim() || publishing}
+                disabled={!title.trim() || !content.trim() || publishing || (storeOnShelby && !shelbyConfigured)}
                 type="button"
                 style={{
-                  opacity: (!title.trim() || !content.trim() || publishing) ? 0.5 : 1,
-                  cursor: (!title.trim() || !content.trim() || publishing) ? 'not-allowed' : 'pointer',
+                  opacity: (!title.trim() || !content.trim() || publishing || (storeOnShelby && !shelbyConfigured)) ? 0.5 : 1,
+                  cursor: (!title.trim() || !content.trim() || publishing || (storeOnShelby && !shelbyConfigured)) ? 'not-allowed' : 'pointer',
                 }}
                 id="publish-button"
               >
@@ -486,14 +549,19 @@ export default function WritePage() {
                 ) : (
                   <>
                     <Sparkles size={16} />
-                    <span>Publish Post</span>
+                    <span>{storeOnShelby ? 'Publish to Shelby' : 'Publish Fallback'}</span>
                   </>
                 )}
               </button>
             </div>
 
             {status && (
-              <p style={{ marginTop: 16, color: '#fda4af', fontSize: '0.9rem' }}>{status}</p>
+              <p style={{ marginTop: 16, color: publishing ? 'var(--color-text-secondary)' : '#fda4af', fontSize: '0.9rem' }}>{status}</p>
+            )}
+            {storeOnShelby && !shelbyConfigured && (
+              <p style={{ marginTop: 16, color: '#fda4af', fontSize: '0.9rem' }}>
+                Set `NEXT_PUBLIC_SHELBY_API_KEY` to enable Shelby publishing, or uncheck Shelby for the local fallback.
+              </p>
             )}
 
             <style jsx>{`
