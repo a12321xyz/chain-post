@@ -23,7 +23,7 @@ export default function WritePage() {
   const [tagInput, setTagInput] = useState('');
   const [category, setCategory] = useState('Tutorial');
   const [preview, setPreview] = useState(false);
-  const [storeOnShelby, setStoreOnShelby] = useState(true);
+  const [storeOnShelby, setStoreOnShelby] = useState(shelbyConfigured);
   const [publishing, setPublishing] = useState(false);
   const [publishedPost, setPublishedPost] = useState<Post | null>(null);
   const [publishedStorageMode, setPublishedStorageMode] = useState<'blob' | 'memory' | null>(null);
@@ -93,15 +93,29 @@ export default function WritePage() {
     setTagInput('');
     setCategory('Tutorial');
     setPreview(false);
-    setStoreOnShelby(true);
+    setStoreOnShelby(shelbyConfigured);
     setStatus('');
   };
 
   const handlePublish = async () => {
-    if (!title.trim() || !content.trim() || !walletAddress) return;
+    const trimmedTitle = title.trim();
+    const trimmedContent = content.trim();
+
+    if (!trimmedTitle || !trimmedContent || !walletAddress) return;
+
+    if (trimmedTitle.length < 4) {
+      setStatus('Title must be at least 4 characters.');
+      return;
+    }
+
+    if (trimmedContent.length < 20) {
+      setStatus('Post body must be at least 20 characters.');
+      return;
+    }
 
     setPublishing(true);
     setStatus('');
+    let shelbyMetadata: PublishShelbyPostResult | null = null;
 
     try {
       await ensureWalletSession({
@@ -110,13 +124,11 @@ export default function WritePage() {
         signMessage,
       });
 
-      let shelbyMetadata: PublishShelbyPostResult | null = null;
-
       if (storeOnShelby) {
         shelbyMetadata = await publishPostContentToShelby({
           walletAddress,
-          title,
-          content,
+          title: trimmedTitle,
+          content: trimmedContent,
           category,
           tags,
           signAndSubmitTransaction,
@@ -133,8 +145,8 @@ export default function WritePage() {
         },
         body: JSON.stringify({
           walletAddress,
-          title,
-          content,
+          title: trimmedTitle,
+          content: trimmedContent,
           category,
           tags,
           isOnChain: shelbyMetadata !== null,
@@ -150,7 +162,12 @@ export default function WritePage() {
       setPublishedPost(data.post as Post);
       setPublishedStorageMode((data.storageMode ?? null) as 'blob' | 'memory' | null);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not publish post');
+      const message = error instanceof Error ? error.message : 'Could not publish post';
+      setStatus(
+        shelbyMetadata
+          ? `Shelby upload succeeded, but feed metadata was not saved: ${message}. Storage ref: ${shelbyMetadata.storageRef}`
+          : message
+      );
     } finally {
       setPublishing(false);
     }

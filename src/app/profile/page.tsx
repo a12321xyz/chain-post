@@ -122,7 +122,7 @@ export default function ProfilePage() {
       setStorageMode((data.storageMode ?? null) as 'blob' | 'memory' | null);
       setMessage(
         data.storageMode === 'memory'
-          ? 'Your profile is loaded in memory mode.'
+          ? 'Your profile has been saved in memory mode for this server instance.'
           : 'Your profile metadata has been saved to Vercel Blob.'
       );
     } catch (error) {

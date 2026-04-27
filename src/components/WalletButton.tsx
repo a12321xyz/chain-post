@@ -34,7 +34,7 @@ export default function WalletButton() {
   async function handleConnect(walletName: string) {
     try {
       setError('');
-      connect(walletName);
+      await connect(walletName);
       setOpen(false);
     } catch (connectError) {
       setError(connectError instanceof Error ? connectError.message : 'Could not connect wallet');
@@ -107,7 +107,7 @@ export default function WalletButton() {
                 type="button"
                 onClick={async () => {
                   await clearWalletSession();
-                  disconnect();
+                  await disconnect();
                   setOpen(false);
                 }}
                 style={{ justifyContent: 'flex-start' }}

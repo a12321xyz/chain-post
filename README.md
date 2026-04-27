@@ -46,14 +46,21 @@ NEXT_PUBLIC_APTOS_API_KEY=
 NEXT_PUBLIC_APTOS_NETWORK=shelbynet
 ```
 
+Required for production wallet sessions:
+
+```bash
+AUTH_SECRET=
+```
+
 Optional metadata persistence:
 
 ```bash
 BLOB_READ_WRITE_TOKEN=
-AUTH_SECRET=
 ```
 
-Without `BLOB_READ_WRITE_TOKEN`, feed metadata and fallback posts use server memory and may reset. Shelby-backed markdown content remains on Shelby after a successful upload.
+`AUTH_SECRET` is required in production. Local development uses a development fallback only.
+
+Without `BLOB_READ_WRITE_TOKEN`, feed metadata and fallback posts use server memory and may reset. If `NEXT_PUBLIC_SHELBY_API_KEY` is not configured, the write flow uses the app-cache fallback for demos. Shelby-backed markdown content remains on Shelby after a successful upload.
 
 ### 3. Run development server
 

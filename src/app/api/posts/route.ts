@@ -9,8 +9,8 @@ const walletSchema = z.object({
 
 const createPostSchema = z.object({
   walletAddress: z.string().trim().min(1).refine(isValidWalletAddress, 'Invalid wallet address'),
-  title: z.string().trim().min(4).max(120),
-  content: z.string().trim().min(20),
+  title: z.string().trim().min(4, 'Title must be at least 4 characters').max(120, 'Title must be 120 characters or less'),
+  content: z.string().trim().min(20, 'Post body must be at least 20 characters'),
   category: z.string().trim().min(2).max(40),
   tags: z.array(z.string().trim().min(1).max(30)).max(5),
   isOnChain: z.boolean().optional().default(false),
@@ -53,11 +53,18 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
   const parsed = createPostSchema.safeParse(body);
 
   if (!parsed.success) {
-    return Response.json({ error: 'Invalid post payload' }, { status: 400 });
+    return Response.json({ error: parsed.error.issues[0]?.message ?? 'Invalid post payload' }, { status: 400 });
   }
 
   const isAuthorized = await requireWalletSession(parsed.data.walletAddress);

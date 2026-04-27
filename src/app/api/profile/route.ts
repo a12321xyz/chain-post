@@ -9,9 +9,9 @@ const walletSchema = z.object({
 
 const profileSchema = z.object({
   walletAddress: z.string().trim().min(1).refine(isValidWalletAddress, 'Invalid wallet address'),
-  name: z.string().trim().min(2).max(40),
-  bio: z.string().trim().max(280),
-  avatar: z.string().trim().min(1).max(4),
+  name: z.string().trim().min(2, 'Display name must be at least 2 characters').max(40, 'Display name must be 40 characters or less'),
+  bio: z.string().trim().max(280, 'Bio must be 280 characters or less'),
+  avatar: z.string().trim().min(1, 'Avatar is required').max(4, 'Avatar must be 4 characters or less'),
 });
 
 export async function GET(request: Request) {
@@ -27,11 +27,18 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const body = await request.json();
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
   const parsed = profileSchema.safeParse(body);
 
   if (!parsed.success) {
-    return Response.json({ error: 'Invalid profile payload' }, { status: 400 });
+    return Response.json({ error: parsed.error.issues[0]?.message ?? 'Invalid profile payload' }, { status: 400 });
   }
 
   const isAuthorized = await requireWalletSession(parsed.data.walletAddress);

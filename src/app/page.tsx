@@ -11,6 +11,7 @@ export default async function Home() {
 
   const posts = await getPosts();
   const storageMode = getStorageMode();
+  const metadataStorageLabel = storageMode === 'blob' ? 'Blob cache' : 'Memory cache';
   const topTags = getTopTags(posts).slice(0, 8);
   const authorCount = new Set(posts.map((post) => post.author.walletAddress)).size;
   const averageReadTime = getAverageReadTime(posts);
@@ -27,7 +28,7 @@ export default async function Home() {
     { label: 'Total Posts', value: posts.length.toString(), icon: '📝' },
     { label: 'Authors', value: authorCount.toString(), icon: '✍️' },
     { label: 'Tags', value: tagCount.toString(), icon: '🏷️' },
-    { label: 'Storage', value: 'Shelby', icon: '🌐' },
+    { label: 'Metadata', value: metadataStorageLabel, icon: '🌐' },
   ];
 
   return (

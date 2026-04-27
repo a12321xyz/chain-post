@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import {
   AccountAddress,
+  type AccountPublicKey,
   AnyPublicKey,
   AnySignature,
   Deserializer,
@@ -256,6 +257,18 @@ function deserializeSignature(kind: SignatureKind, bcsHex: string): Signature {
   }
 }
 
+function isAccountPublicKey(publicKey: PublicKey): publicKey is AccountPublicKey {
+  return publicKey instanceof Ed25519PublicKey
+    || publicKey instanceof AnyPublicKey
+    || publicKey instanceof MultiEd25519PublicKey
+    || publicKey instanceof MultiKey;
+}
+
+function deriveWalletAddressFromPublicKey(publicKey: PublicKey) {
+  if (!isAccountPublicKey(publicKey)) return null;
+  return publicKey.authKey().derivedAddress().toString();
+}
+
 export function verifySignedChallengePayload(payload: SerializedSignedChallenge, challenge: AuthChallenge) {
   let normalizedWalletAddress: string;
   let normalizedSignedAddress: string;
@@ -271,11 +284,17 @@ export function verifySignedChallengePayload(payload: SerializedSignedChallenge,
   if (normalizedSignedAddress !== challenge.walletAddress) return false;
   if (payload.message !== challenge.message) return false;
   if (payload.nonce !== challenge.nonce) return false;
+  if (!payload.fullMessage.includes(challenge.message)) return false;
+  if (!payload.fullMessage.includes(challenge.nonce)) return false;
 
   try {
     const publicKey = deserializePublicKey(payload.publicKeyKind, payload.publicKeyBcs) as {
       verifySignature(args: { message: Uint8Array; signature: Signature }): boolean;
-    };
+    } & PublicKey;
+    const derivedWalletAddress = deriveWalletAddressFromPublicKey(publicKey);
+
+    if (derivedWalletAddress !== challenge.walletAddress) return false;
+
     const signature = deserializeSignature(payload.signatureKind, payload.signatureBcs);
     const signingMessage = new TextEncoder().encode(payload.fullMessage);
 

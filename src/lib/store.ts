@@ -84,9 +84,17 @@ async function getLegacyBlobDatabase(): Promise<BlobDatabase> {
 
 async function listBlobJson<T>(prefix: string): Promise<T[]> {
   try {
-    const { blobs } = await list({ prefix, limit: 1000 });
-    const records = await Promise.all(blobs.map((blob) => fetchJson<T>(blob.url)));
-    return records.filter((record) => record !== undefined) as T[];
+    const records: T[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const result = await list({ prefix, limit: 1000, cursor });
+      const pageRecords = await Promise.all(result.blobs.map((blob) => fetchJson<T>(blob.url)));
+      records.push(...(pageRecords.filter((record) => record !== undefined) as T[]));
+      cursor = result.hasMore ? result.cursor : undefined;
+    } while (cursor);
+
+    return records;
   } catch (error) {
     console.error(`Error listing Blob JSON under ${prefix}:`, error);
     return [];
