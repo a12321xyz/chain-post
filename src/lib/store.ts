@@ -1,5 +1,5 @@
 import { AccountAddress } from '@aptos-labs/ts-sdk';
-import { list, put } from '@vercel/blob';
+import { get as getBlob, list, put, type ListBlobResultBlob } from '@vercel/blob';
 import { mockPosts } from './mock-data';
 import { Author, CreatePostInput, Post, ProfileInput, StorageProvider } from './types';
 import { calculateReadTime, createExcerpt, formatWalletAddress, normalizeTags, slugify } from './utils';
@@ -59,7 +59,7 @@ export function isPersistentStorageEnabled() {
   return blobEnabled;
 }
 
-async function fetchJson<T>(url: string): Promise<T | undefined> {
+async function fetchPublicJson<T>(url: string): Promise<T | undefined> {
   try {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return undefined;
@@ -70,11 +70,28 @@ async function fetchJson<T>(url: string): Promise<T | undefined> {
   }
 }
 
+async function streamToJson<T>(stream: ReadableStream<Uint8Array>) {
+  return (await new Response(stream).json()) as T;
+}
+
+async function fetchBlobJson<T>(blob: ListBlobResultBlob): Promise<T | undefined> {
+  try {
+    const result = await getBlob(blob.pathname, { access: 'private', useCache: false });
+    if (result?.statusCode === 200) {
+      return streamToJson<T>(result.stream);
+    }
+  } catch (error) {
+    console.error(`Error fetching private Blob JSON for ${blob.pathname}:`, error);
+  }
+
+  return fetchPublicJson<T>(blob.url);
+}
+
 async function getLegacyBlobDatabase(): Promise<BlobDatabase> {
   try {
     const { blobs } = await list({ prefix: LEGACY_DATABASE_KEY, limit: 1 });
     if (blobs.length > 0 && blobs[0]) {
-      return (await fetchJson<BlobDatabase>(blobs[0].url)) ?? { authors: {}, posts: [] };
+      return (await fetchBlobJson<BlobDatabase>(blobs[0])) ?? { authors: {}, posts: [] };
     }
   } catch (error) {
     console.error('Error fetching legacy Blob DB:', error);
@@ -89,7 +106,7 @@ async function listBlobJson<T>(prefix: string): Promise<T[]> {
 
     do {
       const result = await list({ prefix, limit: 1000, cursor });
-      const pageRecords = await Promise.all(result.blobs.map((blob) => fetchJson<T>(blob.url)));
+      const pageRecords = await Promise.all(result.blobs.map((blob) => fetchBlobJson<T>(blob)));
       records.push(...(pageRecords.filter((record) => record !== undefined) as T[]));
       cursor = result.hasMore ? result.cursor : undefined;
     } while (cursor);
