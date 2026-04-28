@@ -6,7 +6,8 @@ import remarkGfm from 'remark-gfm';
 import { ArrowLeft, Heart, Eye, Clock, Hash, Share2, Check } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { fetchShelbyPostContentInBrowser } from '@/lib/shelby-client';
 
 interface PostDetailProps {
   post: Post;
@@ -16,10 +17,41 @@ export default function PostDetail({ post }: PostDetailProps) {
   const [liked, setLiked] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [loadedContent, setLoadedContent] = useState(post.content ?? '');
+  const [contentLoading, setContentLoading] = useState(false);
   const timeAgo = formatDistanceToNow(new Date(post.publishedAt), { addSuffix: true });
   const dateFormatted = format(new Date(post.publishedAt), 'MMMM d, yyyy');
   const isShelbyPost = post.storageProvider === 'shelby';
-  const postContent = post.content ?? '';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadShelbyContent() {
+      if (!isShelbyPost || loadedContent) return;
+
+      setContentLoading(true);
+      try {
+        const content = await fetchShelbyPostContentInBrowser(post);
+        if (!cancelled && content) {
+          setLoadedContent(content);
+        }
+      } catch {
+        if (!cancelled) {
+          setLoadedContent('');
+        }
+      } finally {
+        if (!cancelled) {
+          setContentLoading(false);
+        }
+      }
+    }
+
+    void loadShelbyContent();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isShelbyPost, loadedContent, post]);
 
   const handleCopyLink = async () => {
     try {
@@ -151,16 +183,18 @@ export default function PostDetail({ post }: PostDetailProps) {
         <div className="divider" style={{ marginBottom: 40 }} />
 
         {/* Content */}
-        {postContent ? (
+        {loadedContent ? (
           <article className="markdown-body animate-fadeIn animate-delay-2" id="post-content">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {postContent}
+              {loadedContent}
             </ReactMarkdown>
           </article>
         ) : (
           <div className="glass-card animate-fadeIn animate-delay-2" id="post-content" style={{ padding: 24 }}>
             <p style={{ color: '#fda4af', lineHeight: 1.6 }}>
-              This post metadata was found, but the Shelby content could not be loaded right now.
+              {contentLoading
+                ? 'Loading Shelby content...'
+                : 'This post metadata was found, but the Shelby content could not be loaded right now.'}
             </p>
           </div>
         )}

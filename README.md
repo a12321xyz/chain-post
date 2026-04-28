@@ -1,80 +1,91 @@
 # ChainPost
 
-**Publish with your wallet. Store markdown on Shelby.**
+Wallet-connected publishing for Aptos writers. ChainPost stores markdown on Shelby and keeps lightweight feed metadata in Vercel Blob so posts can be discovered, listed, and routed.
 
-ChainPost is a wallet-connected blogging MVP built for the Shelby Developer Program. Writers connect an Aptos wallet, create a profile, write markdown, register a Shelby blob with their wallet, and upload the post body to Shelby. The app keeps lightweight feed metadata in Vercel Blob or memory so posts can be discovered and routed.
+## What It Does
 
-## Features
+- Connect an Aptos wallet and verify ownership with a signed message.
+- Create a writer profile tied to the connected wallet.
+- Write posts in markdown with GitHub-Flavored Markdown preview.
+- Register and upload post content to Shelby from the browser.
+- Cache post metadata and profiles in Vercel Blob for production persistence.
+- Fall back to in-memory storage for local demos when Vercel Blob is not configured.
 
-- **Wallet authentication:** Login with compatible Aptos wallets via `@aptos-labs/wallet-adapter-react`.
-- **Shelby-backed publishing:** The write flow generates Shelby commitments, asks the wallet to sign the blob registration transaction, waits for confirmation, then uploads markdown bytes to Shelby RPC.
-- **Markdown editor:** GitHub-Flavored Markdown support with live preview.
-- **Metadata cache:** Titles, excerpts, tags, author profile data, ordering, `storageRef`, and the Shelby transaction hash are cached for app discovery. Shelby post bodies are not stored in that cache.
-- **Fallback mode:** If Shelby or Vercel Blob envs are not configured, local development can still use ephemeral memory and inline content for demos.
+## Stack
 
-## Tech Stack
+- Next.js 16 App Router
+- TypeScript and React 19
+- Aptos Wallet Adapter
+- Shelby Protocol SDK
+- Vercel Blob
+- Vercel Web Analytics and Speed Insights
 
-- **Framework:** Next.js 16 App Router
-- **Language:** TypeScript
-- **Wallets:** Aptos Wallet Adapter
-- **Storage:** Shelby for markdown content, Vercel Blob or memory for metadata cache
-- **Deployment:** Vercel
+## Environment Variables
 
-## Getting Started
+Set these in Vercel under Project Settings -> Environment Variables.
 
-### 1. Clone and install
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `AUTH_SECRET` | Production | Signs wallet challenge and session cookies. Use a long random value. |
+| `BLOB_READ_WRITE_TOKEN` | Production persistence | Enables Vercel Blob for profiles and feed metadata. Without it, the app uses server memory. |
+| `NEXT_PUBLIC_SHELBY_API_KEY` | Shelby publishing | Enables Shelby uploads from the browser. Without it, users can only use the local fallback flow. |
+| `NEXT_PUBLIC_APTOS_API_KEY` | Recommended | Passes an Aptos API key to Shelby/Aptos clients. |
+| `NEXT_PUBLIC_APTOS_NETWORK` | Recommended | Aptos network for Shelby publishing. Use `shelbynet` unless you intentionally target `testnet`. |
 
-```bash
-git clone https://github.com/a12321xyz/chain-post.git
-cd chain-post
-npm install
-```
+Vercel Analytics and Speed Insights do not require project environment variables in this app. They are enabled by the installed Next.js components and are viewed from the Vercel dashboard after deployment.
 
-### 2. Configure environment
-
-Copy the example env file:
+For local development, copy the example file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Set Shelby and Aptos public API keys for browser-owned Shelby uploads:
+Then fill in the values you need:
 
 ```bash
+AUTH_SECRET=
+BLOB_READ_WRITE_TOKEN=
 NEXT_PUBLIC_SHELBY_API_KEY=
 NEXT_PUBLIC_APTOS_API_KEY=
 NEXT_PUBLIC_APTOS_NETWORK=shelbynet
 ```
 
-Required for production wallet sessions:
+`AUTH_SECRET` is required in production. Local development uses a development-only fallback secret when `AUTH_SECRET` is not set.
+
+## Local Development
 
 ```bash
-AUTH_SECRET=
-```
-
-Optional metadata persistence:
-
-```bash
-BLOB_READ_WRITE_TOKEN=
-```
-
-`AUTH_SECRET` is required in production. Local development uses a development fallback only.
-
-Without `BLOB_READ_WRITE_TOKEN`, feed metadata and fallback posts use server memory and may reset. If `NEXT_PUBLIC_SHELBY_API_KEY` is not configured, the write flow uses the app-cache fallback for demos. Shelby-backed markdown content remains on Shelby after a successful upload.
-
-### 3. Run development server
-
-```bash
+npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), connect an Aptos wallet on the configured network, create a profile, and publish a Shelby-backed post.
+Open [http://localhost:3000](http://localhost:3000), connect an Aptos wallet on the configured network, create a profile, and publish a post.
 
-## Architecture Notes
+## Deployment
 
-- Creator identity is wallet-based.
-- Shelby posts store markdown content on Shelby and display the real registration transaction hash.
-- ChainPost keeps feed metadata in an app cache for discovery and routing. If Vercel Blob is enabled, each post metadata entry and profile is stored as its own blob; this avoids rewriting one large JSON file for every post body.
-- The feed metadata cache is still centralized application infrastructure. Do not treat it as decentralized storage.
+1. Import the repository into Vercel.
+2. Add the environment variables listed above.
+3. Create or connect a Vercel Blob store so `BLOB_READ_WRITE_TOKEN` is available.
+4. Deploy the `main` branch.
+5. Enable Web Analytics and Speed Insights in the Vercel project dashboard if they are not already enabled.
+
+## Storage Model
+
+Shelby posts store the markdown body on Shelby. ChainPost stores only discovery metadata for those posts, including title, excerpt, tags, author profile data, ordering, Shelby storage reference, and transaction hash.
+
+Fallback posts are different: when Shelby is not used, the app stores post content in the selected app cache. In production that means Vercel Blob when `BLOB_READ_WRITE_TOKEN` is configured; otherwise it is stored only in server memory and can reset.
+
+The metadata cache is application infrastructure. Treat Shelby as the source of truth for Shelby-backed post content.
+
+## Scripts
+
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+```
+
+## License
 
 Built for the Shelby Developer Program 2026.

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import PostCard from '@/components/PostCard';
 import { Author, Post } from '@/lib/types';
-import { formatWalletAddress } from '@/lib/utils';
+import { formatWalletAddress, takeGraphemes } from '@/lib/utils';
 import { ensureWalletSession } from '@/lib/wallet-auth-client';
 
 export default function ProfilePage() {
@@ -132,6 +132,10 @@ export default function ProfilePage() {
     }
   }
 
+  function handleAvatarChange(value: string) {
+    setAvatar(takeGraphemes(value, 4));
+  }
+
   if (!connected) {
     return (
       <div style={{ padding: '56px 0' }}>
@@ -180,7 +184,7 @@ export default function ProfilePage() {
               <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                 Avatar Emoji
               </label>
-              <input className="input" value={avatar} onChange={(e) => setAvatar(e.target.value)} maxLength={4} style={{ maxWidth: 120 }} />
+              <input className="input" value={avatar} onChange={(e) => handleAvatarChange(e.target.value)} style={{ maxWidth: 120 }} />
             </div>
 
             <div style={{ marginBottom: 20 }}>

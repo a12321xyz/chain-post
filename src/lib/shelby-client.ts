@@ -1,5 +1,6 @@
 import type { AptosSignAndSubmitTransactionOutput, InputTransactionData } from '@aptos-labs/wallet-adapter-core';
 import { AccountAddress, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
+import type { Post } from './types';
 import {
   createDefaultErasureCodingProvider,
   defaultErasureCodingConfig,
@@ -16,6 +17,8 @@ import {
   getAptosApiKey,
   getConfiguredAptosNetwork,
   getShelbyApiKey,
+  parseShelbyStorageRef,
+  readShelbyPostContent,
   SHELBY_POST_SCHEMA,
   SHELBY_POST_TTL_DAYS,
   type ShelbyPostBlob,
@@ -67,6 +70,39 @@ function getShelbyClientConfig(network: ShelbyNetwork): ShelbyClientConfig {
         }
       : undefined,
   };
+}
+
+function networkFromName(networkName: string | undefined): ShelbyNetwork {
+  switch (networkName?.toLowerCase()) {
+    case 'testnet':
+      return Network.TESTNET;
+    case 'shelbynet':
+      return Network.SHELBYNET;
+    default:
+      break;
+  }
+
+  const configuredNetwork = getConfiguredAptosNetwork();
+  assertShelbyNetwork(configuredNetwork);
+  return configuredNetwork;
+}
+
+export async function fetchShelbyPostContentInBrowser(post: Post) {
+  const parsedRef = parseShelbyStorageRef(post.storageRef);
+  const account = post.storageAccount ?? parsedRef?.account;
+  const blobName = post.storageBlobName ?? parsedRef?.blobName;
+
+  if (!account || !blobName) return undefined;
+
+  const network = networkFromName(post.storageNetwork ?? parsedRef?.network);
+  const rpc = new ShelbyRPCClient(getShelbyClientConfig(network));
+  const blob = await rpc.getBlob({
+    account: AccountAddress.from(account),
+    blobName,
+  });
+  const raw = await new Response(blob.readable).text();
+
+  return readShelbyPostContent(raw);
 }
 
 export async function publishPostContentToShelby({

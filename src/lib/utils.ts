@@ -6,6 +6,22 @@ export function formatWalletAddress(address: string, start = 6, end = 4) {
   return `${address.slice(0, start)}...${address.slice(-end)}`;
 }
 
+export function getGraphemes(input: string) {
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(input)].map((part) => part.segment);
+  }
+
+  return Array.from(input);
+}
+
+export function countGraphemes(input: string) {
+  return getGraphemes(input).length;
+}
+
+export function takeGraphemes(input: string, maxLength: number) {
+  return getGraphemes(input).slice(0, maxLength).join('');
+}
+
 export function slugify(input: string) {
   return input
     .toLowerCase()

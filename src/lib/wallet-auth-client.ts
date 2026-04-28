@@ -38,49 +38,102 @@ interface EnsureWalletSessionArgs {
   }) => Promise<SignedMessageLike>;
 }
 
+type SerializedPublicKey = ReturnType<typeof serializePublicKey>;
+type BcsHexSerializable = { bcsToHex(): { toString(): string } };
+
+function hasBcsToHex(value: unknown): value is BcsHexSerializable {
+  return typeof value === 'object'
+    && value !== null
+    && 'bcsToHex' in value
+    && typeof value.bcsToHex === 'function';
+}
+
+function hasSignatureList(value: unknown): value is { signatures: unknown[]; bitmap: unknown } {
+  return typeof value === 'object'
+    && value !== null
+    && 'signatures' in value
+    && Array.isArray(value.signatures)
+    && 'bitmap' in value;
+}
+
+function isEd25519PublicKey(publicKey: PublicKey): publicKey is Ed25519PublicKey {
+  return publicKey instanceof Ed25519PublicKey || Ed25519PublicKey.isInstance(publicKey);
+}
+
+function isSecp256k1PublicKey(publicKey: PublicKey): publicKey is Secp256k1PublicKey {
+  return publicKey instanceof Secp256k1PublicKey || Secp256k1PublicKey.isInstance(publicKey);
+}
+
+function isAnyPublicKey(publicKey: PublicKey): publicKey is AnyPublicKey {
+  return publicKey instanceof AnyPublicKey || AnyPublicKey.isInstance(publicKey);
+}
+
+function isMultiEd25519PublicKey(publicKey: PublicKey): publicKey is MultiEd25519PublicKey {
+  return publicKey instanceof MultiEd25519PublicKey || ('publicKeys' in publicKey && 'threshold' in publicKey);
+}
+
+function isMultiKey(publicKey: PublicKey): publicKey is MultiKey {
+  return publicKey instanceof MultiKey || MultiKey.isInstance(publicKey);
+}
+
+function isAnySignature(signature: unknown): signature is AnySignature {
+  return signature instanceof AnySignature
+    || (typeof signature === 'object' && signature !== null && AnySignature.isInstance(signature as Signature));
+}
+
+function isMultiKeySignature(signature: unknown): signature is MultiKeySignature {
+  return signature instanceof MultiKeySignature
+    || (hasSignatureList(signature) && signature.signatures.every(isAnySignature));
+}
+
+function isMultiEd25519Signature(signature: unknown): signature is MultiEd25519Signature {
+  return signature instanceof MultiEd25519Signature
+    || (hasSignatureList(signature) && !isMultiKeySignature(signature));
+}
+
 function serializePublicKey(publicKey: PublicKey) {
-  if (publicKey instanceof Ed25519PublicKey) {
+  if (isEd25519PublicKey(publicKey)) {
     return { publicKeyKind: 'ed25519' as const, publicKeyBcs: publicKey.bcsToHex().toString() };
   }
 
-  if (publicKey instanceof Secp256k1PublicKey) {
+  if (isSecp256k1PublicKey(publicKey)) {
     return { publicKeyKind: 'secp256k1' as const, publicKeyBcs: publicKey.bcsToHex().toString() };
   }
 
-  if (publicKey instanceof AnyPublicKey) {
+  if (isAnyPublicKey(publicKey)) {
     return { publicKeyKind: 'any' as const, publicKeyBcs: publicKey.bcsToHex().toString() };
   }
 
-  if (publicKey instanceof MultiEd25519PublicKey) {
+  if (isMultiEd25519PublicKey(publicKey)) {
     return { publicKeyKind: 'multiEd25519' as const, publicKeyBcs: publicKey.bcsToHex().toString() };
   }
 
-  if (publicKey instanceof MultiKey) {
+  if (isMultiKey(publicKey)) {
     return { publicKeyKind: 'multiKey' as const, publicKeyBcs: publicKey.bcsToHex().toString() };
   }
 
   throw new Error('Unsupported wallet public key type');
 }
 
-function serializeSignature(signature: Signature) {
-  if (signature instanceof Ed25519Signature) {
-    return { signatureKind: 'ed25519' as const, signatureBcs: signature.bcsToHex().toString() };
-  }
-
-  if (signature instanceof Secp256k1Signature) {
-    return { signatureKind: 'secp256k1' as const, signatureBcs: signature.bcsToHex().toString() };
-  }
-
-  if (signature instanceof AnySignature) {
+function serializeSignature(signature: Signature, publicKeyKind: SerializedPublicKey['publicKeyKind']) {
+  if (isAnySignature(signature)) {
     return { signatureKind: 'any' as const, signatureBcs: signature.bcsToHex().toString() };
   }
 
-  if (signature instanceof MultiEd25519Signature) {
+  if (isMultiKeySignature(signature)) {
+    return { signatureKind: 'multiKey' as const, signatureBcs: signature.bcsToHex().toString() };
+  }
+
+  if (isMultiEd25519Signature(signature)) {
     return { signatureKind: 'multiEd25519' as const, signatureBcs: signature.bcsToHex().toString() };
   }
 
-  if (signature instanceof MultiKeySignature) {
-    return { signatureKind: 'multiKey' as const, signatureBcs: signature.bcsToHex().toString() };
+  if (signature instanceof Secp256k1Signature || (publicKeyKind === 'secp256k1' && hasBcsToHex(signature))) {
+    return { signatureKind: 'secp256k1' as const, signatureBcs: signature.bcsToHex().toString() };
+  }
+
+  if (signature instanceof Ed25519Signature || hasBcsToHex(signature)) {
+    return { signatureKind: 'ed25519' as const, signatureBcs: signature.bcsToHex().toString() };
   }
 
   throw new Error('Unsupported wallet signature type');
@@ -122,6 +175,8 @@ export async function ensureWalletSession({ walletAddress, account, signMessage 
     message: challengeData.challenge.message,
     nonce: challengeData.challenge.nonce,
   });
+  const serializedPublicKey = serializePublicKey(account.publicKey);
+  const serializedSignature = serializeSignature(signedMessage.signature, serializedPublicKey.publicKeyKind);
 
   const verificationResponse = await fetch('/api/auth/verify', {
     method: 'POST',
@@ -134,8 +189,8 @@ export async function ensureWalletSession({ walletAddress, account, signMessage 
       message: signedMessage.message,
       nonce: signedMessage.nonce,
       signedAddress: signedMessage.address ?? account.address.toString(),
-      ...serializePublicKey(account.publicKey),
-      ...serializeSignature(signedMessage.signature),
+      ...serializedPublicKey,
+      ...serializedSignature,
     }),
   });
 

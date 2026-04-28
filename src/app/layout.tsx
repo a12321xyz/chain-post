@@ -4,6 +4,8 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WalletProvider from "@/components/WalletProvider";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -18,7 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ChainPost — Wallet Connected Publishing for Aptos",
+  title: "ChainPost - Wallet Connected Publishing for Aptos",
   description: "A wallet-connected publishing app for Aptos builders. Store markdown on Shelby and cache feed metadata for discovery.",
   keywords: ["ChainPost", "Aptos", "Shelby", "wallet publishing", "Next.js", "Vercel"],
 };
@@ -31,13 +33,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body>
-        {/* Animated background */}
         <div className="bg-grid" />
         <div className="bg-orb bg-orb-1" />
         <div className="bg-orb bg-orb-2" />
         <div className="bg-orb bg-orb-3" />
 
-        {/* Main app */}
         <WalletProvider>
           <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
             <Navbar />
@@ -47,6 +47,8 @@ export default function RootLayout({
             <Footer />
           </div>
         </WalletProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
