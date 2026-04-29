@@ -43,7 +43,7 @@ export default function PostCard({ post, index }: PostCardProps) {
           <span className={`badge ${categoryColors[post.category] || 'badge-purple'}`}>
             {post.category}
           </span>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             <Clock size={12} />
             {timeAgo}
           </span>
@@ -56,6 +56,8 @@ export default function PostCard({ post, index }: PostCardProps) {
           lineHeight: 1.35,
           letterSpacing: '-0.01em',
           flex: 1,
+          overflowWrap: 'anywhere',
+          wordBreak: 'break-word',
         }}>
           {post.title}
         </h2>
@@ -69,6 +71,8 @@ export default function PostCard({ post, index }: PostCardProps) {
           WebkitLineClamp: 3,
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
+          overflowWrap: 'anywhere',
+          wordBreak: 'break-word',
         }}>
           {post.excerpt}
         </p>
@@ -91,17 +95,17 @@ export default function PostCard({ post, index }: PostCardProps) {
 
         {/* Footer: author + stats */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             <span style={{ fontSize: '1.5rem' }}>{post.author.avatar}</span>
-            <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{post.author.name}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.author.name}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
                 {formatWalletAddress(post.author.walletAddress)}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
               <Heart size={13} />
               {post.likes}

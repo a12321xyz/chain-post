@@ -170,7 +170,18 @@ export default function ProfilePage() {
               <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                 Wallet
               </label>
-              <div className="input" style={{ fontFamily: 'var(--font-mono)' }}>{walletAddress}</div>
+              <div
+                className="input"
+                title={walletAddress}
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {formatWalletAddress(walletAddress, 10, 8)}
+              </div>
             </div>
 
             <div style={{ marginBottom: 16 }}>
