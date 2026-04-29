@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { categories } from '@/lib/mock-data';
-import { Author, Post } from '@/lib/types';
+import { Author, Post, ShelbyUploadStatus } from '@/lib/types';
 import { ensureWalletSession } from '@/lib/wallet-auth-client';
 import {
   publishPostContentToShelby,
@@ -124,7 +124,7 @@ export default function WritePage() {
     setPublishNotice('');
     let shelbyMetadata: PublishShelbyPostResult | null = null;
 
-    async function savePost(metadata: PublishShelbyPostResult | null) {
+    async function savePost(metadata: (PublishShelbyPostResult & { shelbyUploadStatus?: ShelbyUploadStatus }) | null) {
       const response = await fetch('/api/posts', {
         method: 'POST',
         headers: {
@@ -176,7 +176,7 @@ export default function WritePage() {
       if (error instanceof ShelbyContentUploadError) {
         try {
           setStatus('Shelby registration succeeded, but content upload failed. Saving a fallback copy...');
-          await savePost(null);
+          await savePost({ ...error.metadata, shelbyUploadStatus: 'pending' });
           setPublishNotice(`Shelby registered the blob, but RPC content upload did not finalize. A fallback copy was saved in the app cache. Shelby tx: ${error.metadata.txHash}`);
           return;
         } catch (fallbackError) {
@@ -221,7 +221,9 @@ export default function WritePage() {
             Published <span className="gradient-text">Successfully</span>
           </h1>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 8, fontSize: '1.05rem' }}>
-            {publishedPost.storageProvider === 'shelby'
+            {publishedPost.storageProvider === 'shelby' && publishedPost.shelbyUploadStatus === 'pending'
+              ? 'Shelby registration succeeded, but RPC content upload is still pending. A fallback copy is live from the app cache.'
+              : publishedPost.storageProvider === 'shelby'
               ? 'Markdown content was stored on Shelby. ChainPost cached feed metadata so readers can discover it.'
               : publishedStorageMode === 'memory'
               ? 'Your post was saved in demo memory for this server instance only and may reset.'
@@ -246,7 +248,9 @@ export default function WritePage() {
                 <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Status</span>
                 <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
                   {publishedPost.storageProvider === 'shelby'
-                    ? 'Shelby Stored'
+                    ? publishedPost.shelbyUploadStatus === 'pending'
+                      ? 'Shelby Pending'
+                      : 'Shelby Stored'
                     : publishedStorageMode === 'memory'
                       ? 'Memory Only'
                       : 'Metadata Cached'}

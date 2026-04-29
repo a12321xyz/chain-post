@@ -158,6 +158,21 @@ async function saveBlobPost(post: Post, allowOverwrite = true) {
   });
 }
 
+async function savePostRecord(post: Post, allowOverwrite = true) {
+  if (!blobEnabled) {
+    const db = getMemoryStore();
+    const index = db.posts.findIndex((entry) => entry.slug === post.slug);
+    if (index >= 0) {
+      db.posts[index] = post;
+    } else {
+      db.posts.push(post);
+    }
+    return;
+  }
+
+  await saveBlobPost(post, allowOverwrite);
+}
+
 async function saveBlobAuthor(author: Author) {
   await put(`${AUTHOR_PREFIX}${normalizeWalletKey(author.walletAddress)}.json`, JSON.stringify(author), {
     access: 'public',
@@ -180,12 +195,22 @@ async function getActiveDatabase(): Promise<BlobDatabase> {
 }
 
 async function hydratePostContent(post: Post): Promise<Post> {
-  if (post.content || post.storageProvider !== 'shelby') {
+  if (post.storageProvider !== 'shelby') {
+    return post;
+  }
+
+  if (post.content && post.shelbyUploadStatus !== 'pending') {
     return post;
   }
 
   try {
     const content = await fetchShelbyPostContent(post);
+    if (content && post.shelbyUploadStatus === 'pending') {
+      const updatedPost = { ...post, content: undefined, shelbyUploadStatus: 'stored' as const };
+      await savePostRecord(updatedPost);
+      return { ...updatedPost, content };
+    }
+
     return content ? { ...post, content } : post;
   } catch (error) {
     console.error(`Error fetching Shelby content for ${post.slug}:`, error);
@@ -209,6 +234,7 @@ function buildPost(input: CreatePostInput, author: Author, id: string, slug: str
   const title = input.title.trim();
   const content = input.content.trim();
   const isShelbyPost = input.storageProvider === 'shelby';
+  const shelbyUploadStatus = isShelbyPost ? input.shelbyUploadStatus ?? 'stored' : undefined;
   const storageProvider: StorageProvider = isShelbyPost
     ? 'shelby'
     : blobEnabled
@@ -219,7 +245,7 @@ function buildPost(input: CreatePostInput, author: Author, id: string, slug: str
     id,
     title,
     excerpt: createExcerpt(content),
-    content: isShelbyPost ? undefined : content,
+    content: isShelbyPost && shelbyUploadStatus !== 'pending' ? undefined : content,
     author,
     tags: normalizeTags(input.tags),
     category: input.category,
@@ -234,6 +260,7 @@ function buildPost(input: CreatePostInput, author: Author, id: string, slug: str
     storageAccount: isShelbyPost ? input.storageAccount : undefined,
     storageBlobName: isShelbyPost ? input.storageBlobName : undefined,
     storageNetwork: isShelbyPost ? input.storageNetwork : undefined,
+    shelbyUploadStatus,
     slug,
   };
 }
@@ -312,7 +339,7 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     const db = getMemoryStore();
     const slug = createUniqueSlug(baseSlug, new Set(db.posts.map((post) => post.slug)));
     const post = buildPost(input, author, crypto.randomUUID(), slug);
-    db.posts.push(post);
+    await savePostRecord(post);
     return post;
   }
 
@@ -325,7 +352,7 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     const post = buildPost(input, author, id, slug);
 
     try {
-      await saveBlobPost(post, false);
+      await savePostRecord(post, false);
       return post;
     } catch (error) {
       console.error(`Error saving post blob for ${slug}:`, error);

@@ -19,6 +19,7 @@ const createPostSchema = z.object({
   storageAccount: z.string().trim().min(1).refine(isValidWalletAddress, 'Invalid storage account').optional(),
   storageBlobName: z.string().trim().min(1).max(300).optional(),
   storageNetwork: z.string().trim().min(1).max(40).optional(),
+  shelbyUploadStatus: z.enum(['stored', 'pending']).optional(),
   txHash: z.string().trim().regex(/^0x[0-9a-fA-F]+$/).optional(),
 }).superRefine((input, ctx) => {
   if (input.storageProvider !== 'shelby') return;

@@ -1,4 +1,5 @@
 export type StorageProvider = 'vercel-blob' | 'memory' | 'shelby';
+export type ShelbyUploadStatus = 'stored' | 'pending';
 
 export interface Post {
   id: string;
@@ -20,6 +21,7 @@ export interface Post {
   storageAccount?: string;
   storageBlobName?: string;
   storageNetwork?: string;
+  shelbyUploadStatus?: ShelbyUploadStatus;
   isOnChain: boolean;
 }
 
@@ -54,6 +56,7 @@ export interface CreatePostInput {
   storageAccount?: string;
   storageBlobName?: string;
   storageNetwork?: string;
+  shelbyUploadStatus?: ShelbyUploadStatus;
   txHash?: string;
 }
 

@@ -19,6 +19,7 @@ export default function PostDetail({ post }: PostDetailProps) {
   const [copyFailed, setCopyFailed] = useState(false);
   const [loadedContent, setLoadedContent] = useState(post.content ?? '');
   const [contentLoading, setContentLoading] = useState(false);
+  const [shelbyAvailable, setShelbyAvailable] = useState(post.shelbyUploadStatus !== 'pending');
   const timeAgo = formatDistanceToNow(new Date(post.publishedAt), { addSuffix: true });
   const dateFormatted = format(new Date(post.publishedAt), 'MMMM d, yyyy');
   const isShelbyPost = post.storageProvider === 'shelby';
@@ -36,16 +37,17 @@ export default function PostDetail({ post }: PostDetailProps) {
     let cancelled = false;
 
     async function loadShelbyContent() {
-      if (!isShelbyPost || loadedContent) return;
+      if (!isShelbyPost || (loadedContent && shelbyAvailable)) return;
 
       setContentLoading(true);
       try {
         const content = await fetchShelbyPostContentInBrowser(post);
         if (!cancelled && content) {
           setLoadedContent(content);
+          setShelbyAvailable(true);
         }
       } catch {
-        if (!cancelled) {
+        if (!cancelled && !loadedContent) {
           setLoadedContent('');
         }
       } finally {
@@ -60,7 +62,7 @@ export default function PostDetail({ post }: PostDetailProps) {
     return () => {
       cancelled = true;
     };
-  }, [isShelbyPost, loadedContent, post]);
+  }, [isShelbyPost, loadedContent, post, shelbyAvailable]);
 
   const handleCopyLink = async () => {
     try {
@@ -192,6 +194,14 @@ export default function PostDetail({ post }: PostDetailProps) {
         <div className="divider" style={{ marginBottom: 40 }} />
 
         {/* Content */}
+        {isShelbyPost && !shelbyAvailable && loadedContent && (
+          <div className="glass-card animate-fadeIn animate-delay-2" style={{ padding: 18, marginBottom: 24 }}>
+            <p style={{ color: '#fbbf24', lineHeight: 1.6, fontSize: '0.9rem' }}>
+              Shelby registered this blob, but RPC content finalization is still pending. Showing the fallback app-cache copy for now.
+            </p>
+          </div>
+        )}
+
         {loadedContent ? (
           <article className="markdown-body animate-fadeIn animate-delay-2" id="post-content">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -271,6 +281,22 @@ export default function PostDetail({ post }: PostDetailProps) {
               }}>
                 <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Storage Provider</span>
                 <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>Shelby</span>
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 14px',
+                background: 'rgba(255, 255, 255, 0.02)',
+                borderRadius: 8,
+                border: '1px solid var(--color-border-subtle)',
+                flexWrap: 'wrap',
+                gap: 8,
+              }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Content Status</span>
+                <span className={`badge ${shelbyAvailable ? 'badge-green' : 'badge-pink'}`} style={{ fontSize: '0.7rem' }}>
+                  {shelbyAvailable ? 'RPC Readable' : 'RPC Pending'}
+                </span>
               </div>
               <div style={{
                 display: 'flex',

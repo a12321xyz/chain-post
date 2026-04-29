@@ -14,6 +14,7 @@ interface PostCardProps {
 export default function PostCard({ post, index }: PostCardProps) {
   const timeAgo = formatDistanceToNow(new Date(post.publishedAt), { addSuffix: true });
   const isShelbyStored = post.storageProvider === 'shelby' && post.txHash && post.storageRef;
+  const isShelbyPending = isShelbyStored && post.shelbyUploadStatus === 'pending';
   const shelbyTxHash = isShelbyStored ? post.txHash : undefined;
 
   const categoryColors: Record<string, string> = {
@@ -124,13 +125,13 @@ export default function PostCard({ post, index }: PostCardProps) {
             alignItems: 'center',
             gap: 6,
             padding: '8px 12px',
-            background: 'rgba(16, 185, 129, 0.06)',
+            background: isShelbyPending ? 'rgba(251, 191, 36, 0.06)' : 'rgba(16, 185, 129, 0.06)',
             borderRadius: 8,
-            border: '1px solid rgba(16, 185, 129, 0.12)',
+            border: `1px solid ${isShelbyPending ? 'rgba(251, 191, 36, 0.14)' : 'rgba(16, 185, 129, 0.12)'}`,
           }}>
             <div className="status-dot" style={{ width: 6, height: 6 }} />
-            <span style={{ fontSize: '0.72rem', color: '#34d399', fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>
-              Shelby stored
+            <span style={{ fontSize: '0.72rem', color: isShelbyPending ? '#fbbf24' : '#34d399', fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>
+              {isShelbyPending ? 'Shelby pending' : 'Shelby stored'}
             </span>
             <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', marginLeft: 'auto' }}>
               {shelbyTxHash.slice(0, 10)}...{shelbyTxHash.slice(-6)}
