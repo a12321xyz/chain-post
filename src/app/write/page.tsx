@@ -9,7 +9,11 @@ import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { categories } from '@/lib/mock-data';
 import { Author, Post } from '@/lib/types';
 import { ensureWalletSession } from '@/lib/wallet-auth-client';
-import { publishPostContentToShelby, type PublishShelbyPostResult } from '@/lib/shelby-client';
+import {
+  publishPostContentToShelby,
+  ShelbyContentUploadError,
+  type PublishShelbyPostResult,
+} from '@/lib/shelby-client';
 import { getShelbyApiKey } from '@/lib/shelby';
 
 export default function WritePage() {
@@ -30,6 +34,7 @@ export default function WritePage() {
   const [profile, setProfile] = useState<Author | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [status, setStatus] = useState('');
+  const [publishNotice, setPublishNotice] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +100,7 @@ export default function WritePage() {
     setPreview(false);
     setStoreOnShelby(shelbyConfigured);
     setStatus('');
+    setPublishNotice('');
   };
 
   const handlePublish = async () => {
@@ -115,7 +121,35 @@ export default function WritePage() {
 
     setPublishing(true);
     setStatus('');
+    setPublishNotice('');
     let shelbyMetadata: PublishShelbyPostResult | null = null;
+
+    async function savePost(metadata: PublishShelbyPostResult | null) {
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress,
+          title: trimmedTitle,
+          content: trimmedContent,
+          category,
+          tags,
+          isOnChain: metadata !== null,
+          ...metadata,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Could not publish post');
+      }
+
+      setPublishedPost(data.post as Post);
+      setPublishedStorageMode((data.storageMode ?? null) as 'blob' | 'memory' | null);
+      return data.post as Post;
+    }
 
     try {
       await ensureWalletSession({
@@ -137,31 +171,24 @@ export default function WritePage() {
       }
 
       setStatus('Saving feed metadata...');
-
-      const response = await fetch('/api/posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          walletAddress,
-          title: trimmedTitle,
-          content: trimmedContent,
-          category,
-          tags,
-          isOnChain: shelbyMetadata !== null,
-          ...shelbyMetadata,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error ?? 'Could not publish post');
+      await savePost(shelbyMetadata);
+    } catch (error) {
+      if (error instanceof ShelbyContentUploadError) {
+        try {
+          setStatus('Shelby registration succeeded, but content upload failed. Saving a fallback copy...');
+          await savePost(null);
+          setPublishNotice(`Shelby registered the blob, but RPC content upload did not finalize. A fallback copy was saved in the app cache. Shelby tx: ${error.metadata.txHash}`);
+          return;
+        } catch (fallbackError) {
+          setStatus(
+            `Shelby registration succeeded, but content upload failed and fallback save failed: ${
+              fallbackError instanceof Error ? fallbackError.message : 'Could not save fallback post'
+            }. Shelby tx: ${error.metadata.txHash}`
+          );
+          return;
+        }
       }
 
-      setPublishedPost(data.post as Post);
-      setPublishedStorageMode((data.storageMode ?? null) as 'blob' | 'memory' | null);
-    } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not publish post';
       setStatus(
         shelbyMetadata
@@ -200,6 +227,11 @@ export default function WritePage() {
               ? 'Your post was saved in demo memory for this server instance only and may reset.'
               : 'Your post is live in the ChainPost feed with content stored in the app metadata cache.'}
           </p>
+          {publishNotice && (
+            <p style={{ color: '#fbbf24', margin: '12px auto 0', fontSize: '0.9rem', lineHeight: 1.6, maxWidth: 620 }}>
+              {publishNotice}
+            </p>
+          )}
 
           <div className="glass-card" style={{ padding: 20, marginTop: 24, maxWidth: 520, margin: '24px auto' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

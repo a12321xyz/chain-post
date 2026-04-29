@@ -45,6 +45,17 @@ export interface PublishShelbyPostResult {
   txHash: string;
 }
 
+export class ShelbyContentUploadError extends Error {
+  constructor(
+    message: string,
+    readonly metadata: PublishShelbyPostResult,
+    options?: ErrorOptions
+  ) {
+    super(message, options);
+    this.name = 'ShelbyContentUploadError';
+  }
+}
+
 function assertShelbyNetwork(network: Network): asserts network is ShelbyNetwork {
   if (network !== Network.SHELBYNET && network !== Network.TESTNET) {
     throw new Error('Shelby storage requires NEXT_PUBLIC_APTOS_NETWORK=shelbynet or testnet.');
@@ -85,6 +96,75 @@ function networkFromName(networkName: string | undefined): ShelbyNetwork {
   const configuredNetwork = getConfiguredAptosNetwork();
   assertShelbyNetwork(configuredNetwork);
   return configuredNetwork;
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function verifyShelbyBlobAvailable(rpc: ShelbyRPCClient, account: AccountAddress, blobName: string) {
+  try {
+    const blob = await rpc.getBlob({ account, blobName });
+    await new Response(blob.readable).arrayBuffer();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cleanShelbyUploadError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.includes('Failed to complete multipart upload')) {
+    return 'Shelby RPC could not finalize the content upload right now.';
+  }
+
+  if (message.includes('Failed to upload part')) {
+    return 'Shelby RPC could not receive the content upload right now.';
+  }
+
+  return message || 'Shelby content upload failed.';
+}
+
+async function putBlobWithRetry({
+  rpc,
+  account,
+  blobName,
+  blobData,
+  onStatus,
+}: {
+  rpc: ShelbyRPCClient;
+  account: AccountAddress;
+  blobName: string;
+  blobData: Uint8Array;
+  onStatus?: (status: string) => void;
+}) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      onStatus?.(attempt === 1 ? 'Uploading markdown bytes to Shelby...' : `Retrying Shelby upload (${attempt}/3)...`);
+      await rpc.putBlob({
+        account,
+        blobName,
+        blobData,
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+
+      onStatus?.('Checking whether Shelby stored the content...');
+      if (await verifyShelbyBlobAvailable(rpc, account, blobName)) {
+        return;
+      }
+
+      if (attempt < 3) {
+        await wait(attempt * 1200);
+      }
+    }
+  }
+
+  throw new Error(cleanShelbyUploadError(lastError), { cause: lastError });
 }
 
 export async function fetchShelbyPostContentInBrowser(post: Post) {
@@ -154,6 +234,18 @@ export async function publishPostContentToShelby({
   });
 
   const txHash = transaction.hash;
+  const metadata: PublishShelbyPostResult = {
+    storageProvider: 'shelby',
+    storageRef: createShelbyStorageRef({
+      network,
+      account: account.toString(),
+      blobName,
+    }),
+    storageAccount: account.toString(),
+    storageBlobName: blobName,
+    storageNetwork: network,
+    txHash,
+  };
 
   onStatus?.('Waiting for Shelby registration transaction...');
   const aptosApiKey = getAptosApiKey() || getShelbyApiKey();
@@ -171,24 +263,17 @@ export async function publishPostContentToShelby({
     },
   });
 
-  onStatus?.('Uploading markdown bytes to Shelby...');
   const rpc = new ShelbyRPCClient(config);
-  await rpc.putBlob({
-    account,
-    blobName,
-    blobData,
-  });
 
-  return {
-    storageProvider: 'shelby',
-    storageRef: createShelbyStorageRef({
-      network,
-      account: account.toString(),
-      blobName,
-    }),
-    storageAccount: account.toString(),
-    storageBlobName: blobName,
-    storageNetwork: network,
-    txHash,
-  };
+  try {
+    await putBlobWithRetry({ rpc, account, blobName, blobData, onStatus });
+  } catch (error) {
+    throw new ShelbyContentUploadError(
+      error instanceof Error ? error.message : 'Shelby content upload failed.',
+      metadata,
+      { cause: error }
+    );
+  }
+
+  return metadata;
 }
