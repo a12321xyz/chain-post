@@ -1,7 +1,10 @@
 import { Blocks, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { getShelbyApiKey } from '@/lib/shelby';
 
 export default function Footer() {
+  const shelbyConfigured = getShelbyApiKey().length > 0;
+
   return (
     <footer style={{
       marginTop: 80,
@@ -84,10 +87,14 @@ export default function Footer() {
             </h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <div className="status-dot" />
-              <span style={{ color: '#34d399', fontSize: '0.875rem', fontWeight: 500 }}>Shelby Ready</span>
+              <span style={{ color: shelbyConfigured ? '#34d399' : '#fda4af', fontSize: '0.875rem', fontWeight: 500 }}>
+                {shelbyConfigured ? 'Shelby Ready' : 'Shelby Not Configured'}
+              </span>
             </div>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-              Set `NEXT_PUBLIC_SHELBY_API_KEY` for Shelby uploads. Vercel Blob or memory is used for metadata caching.
+              {shelbyConfigured
+                ? 'Shelby uploads are enabled. Vercel Blob is used for feed and profile metadata.'
+                : 'Set NEXT_PUBLIC_SHELBY_API_KEY to enable Shelby uploads. Vercel Blob or memory is used for metadata caching.'}
             </p>
           </div>
         </div>

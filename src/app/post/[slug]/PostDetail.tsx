@@ -22,6 +22,15 @@ export default function PostDetail({ post }: PostDetailProps) {
   const timeAgo = formatDistanceToNow(new Date(post.publishedAt), { addSuffix: true });
   const dateFormatted = format(new Date(post.publishedAt), 'MMMM d, yyyy');
   const isShelbyPost = post.storageProvider === 'shelby';
+  const metadataValueStyle = {
+    fontSize: '0.8rem',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--color-accent-cyan)',
+    minWidth: 0,
+    overflowWrap: 'anywhere' as const,
+    wordBreak: 'break-word' as const,
+    textAlign: 'right' as const,
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -229,14 +238,14 @@ export default function PostDetail({ post }: PostDetailProps) {
                 gap: 8,
               }}>
                 <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Transaction Hash</span>
-                <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: 'var(--color-accent-cyan)' }}>
+                <span style={metadataValueStyle}>
                   {post.txHash ? `${post.txHash.slice(0, 18)}...${post.txHash.slice(-8)}` : 'Unavailable'}
                 </span>
               </div>
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 padding: '10px 14px',
                 background: 'rgba(255, 255, 255, 0.02)',
                 borderRadius: 8,
@@ -245,7 +254,7 @@ export default function PostDetail({ post }: PostDetailProps) {
                 gap: 8,
               }}>
                 <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Storage Reference</span>
-                <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: '#a78bfa' }}>
+                <span style={{ ...metadataValueStyle, color: '#a78bfa', lineHeight: 1.6 }}>
                   {post.storageRef ?? 'Unavailable'}
                 </span>
               </div>
@@ -312,7 +321,7 @@ export default function PostDetail({ post }: PostDetailProps) {
                 gap: 8,
               }}>
                 <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Author Wallet</span>
-                <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: 'var(--color-accent-cyan)' }}>
+                <span style={metadataValueStyle}>
                   {post.author.walletAddress}
                 </span>
               </div>
