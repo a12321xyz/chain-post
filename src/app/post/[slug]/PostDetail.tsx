@@ -254,17 +254,23 @@ export default function PostDetail({ post }: PostDetailProps) {
               </div>
               <div style={{
                 display: 'flex',
-                justifyContent: 'space-between',
+                flexDirection: 'column',
                 alignItems: 'flex-start',
                 padding: '10px 14px',
                 background: 'rgba(255, 255, 255, 0.02)',
                 borderRadius: 8,
                 border: '1px solid var(--color-border-subtle)',
-                flexWrap: 'wrap',
-                gap: 8,
+                gap: 4,
               }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Storage Reference</span>
-                <span style={{ ...metadataValueStyle, color: '#a78bfa', lineHeight: 1.6 }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Storage Reference</span>
+                <span style={{ 
+                  ...metadataValueStyle, 
+                  color: '#a78bfa', 
+                  lineHeight: 1.4,
+                  textAlign: 'left',
+                  fontSize: '0.75rem',
+                  wordBreak: 'break-all'
+                }}>
                   {post.storageRef ?? 'Unavailable'}
                 </span>
               </div>

@@ -276,16 +276,23 @@ export default function WritePage() {
               {publishedPost.storageProvider === 'shelby' && publishedPost.storageRef && (
                 <div style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  padding: '10px 14px',
                   background: 'rgba(255,255,255,0.02)',
                   borderRadius: 8,
                   border: '1px solid var(--color-border-subtle)',
-                  gap: 12,
-                  flexWrap: 'wrap',
+                  gap: 4,
                 }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Storage Ref</span>
-                  <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: '#a78bfa' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Storage Ref</span>
+                  <span style={{ 
+                    fontSize: '0.75rem', 
+                    fontFamily: 'var(--font-mono)', 
+                    color: '#a78bfa',
+                    wordBreak: 'break-all',
+                    textAlign: 'left',
+                    lineHeight: 1.4
+                  }}>
                     {publishedPost.storageRef}
                   </span>
                 </div>
