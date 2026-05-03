@@ -20,6 +20,9 @@ const blobEnabled = (process.env.BLOB_READ_WRITE_TOKEN?.trim().length ?? 0) > 0;
 const LEGACY_DATABASE_KEY = 'chainpost-db.json';
 const POST_PREFIX = 'chainpost/posts/';
 const AUTHOR_PREFIX = 'chainpost/authors/';
+const HYDRATION_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
+const hydrationCooldown = new Map<string, number>();
+
 
 function normalizeWalletKey(walletAddress: string) {
   try {
@@ -186,10 +189,15 @@ async function getActiveDatabase(): Promise<BlobDatabase> {
     return getMemoryStore();
   }
 
-  const [authors, posts] = await Promise.all([
+  const [authors, rawPosts] = await Promise.all([
     getBlobAuthors(),
     getBlobPosts(),
   ]);
+
+  const posts = rawPosts.map((post) => {
+    const freshAuthor = authors[normalizeWalletKey(post.author.walletAddress)];
+    return freshAuthor ? { ...post, author: { ...freshAuthor } } : post;
+  });
 
   return { authors, posts };
 }
@@ -206,9 +214,15 @@ async function hydratePostContent(post: Post): Promise<Post> {
   try {
     const content = await fetchShelbyPostContent(post);
     if (content && post.shelbyUploadStatus === 'pending') {
-      const updatedPost = { ...post, content: undefined, shelbyUploadStatus: 'stored' as const };
-      await savePostRecord(updatedPost);
-      return { ...updatedPost, content };
+      const now = Date.now();
+      const lastAttempt = hydrationCooldown.get(post.slug) ?? 0;
+
+      if (now - lastAttempt > HYDRATION_COOLDOWN_MS) {
+        hydrationCooldown.set(post.slug, now);
+        const updatedPost = { ...post, content: undefined, shelbyUploadStatus: 'stored' as const };
+        await savePostRecord(updatedPost);
+        return { ...updatedPost, content };
+      }
     }
 
     return content ? { ...post, content } : post;
@@ -317,11 +331,6 @@ export async function upsertAuthorProfile(input: ProfileInput): Promise<Author> 
   }
 
   await saveBlobAuthor(author);
-
-  const posts = await getBlobPosts();
-  const authoredPosts = posts.filter((post) => normalizeWalletKey(post.author.walletAddress) === walletAddress);
-  await Promise.all(authoredPosts.map((post) => saveBlobPost({ ...post, author })));
-
   return author;
 }
 
